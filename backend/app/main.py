@@ -8,14 +8,13 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create DB tables
-    Base.metadata.create_all(bind=engine)
-    # Auto-seed initial data on fresh database deployment
+    # Create DB tables and auto-seed initial data
     try:
+        Base.metadata.create_all(bind=engine)
         from app.seed import seed_database
         seed_database()
     except Exception as e:
-        print(f"[Startup Warning] Seeding skipped or encountered note: {e}")
+        print(f"[Startup Database Error] Failed to connect/seed DB: {e}")
     yield
 
 app = FastAPI(
