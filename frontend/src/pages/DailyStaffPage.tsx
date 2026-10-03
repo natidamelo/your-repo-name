@@ -196,23 +196,51 @@ export const DailyStaffPage: React.FC<DailyStaffPageProps> = ({ initialDate = '2
                       <span><strong className="text-foreground">Lunch:</strong> {staff.lunch}</span>
                     </div>
 
-                    <div className="pt-1">
-                      <div className="flex items-center space-x-2 text-muted-foreground mb-1">
+                    <div className="pt-2 border-t border-border/40">
+                      <div className="flex items-center space-x-2 text-muted-foreground mb-1.5">
                         <Briefcase className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                        <span className="font-semibold text-foreground text-[11px]">Assigned Tasks:</span>
+                        <span className="font-semibold text-foreground text-[11px]">Task Schedule:</span>
                       </div>
-                      <div className="flex flex-wrap gap-1 pl-5">
-                        {((staff.assigned_tasks && staff.assigned_tasks.length > 0)
-                          ? staff.assigned_tasks
-                          : [staff.primary_task, staff.secondary_task].filter(Boolean)
-                        ).map((task: string) => (
-                          <span
-                            key={task}
-                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-500/40 dark:bg-sky-950/40 dark:text-sky-300"
-                          >
-                            {task}
-                          </span>
-                        ))}
+                      <div className="flex flex-col gap-1 pl-1">
+                        {staff.task_details && staff.task_details.length > 0 ? (
+                          staff.task_details.map((t: any, idx: number) => {
+                            const timeStr = t.start_time && t.end_time ? `${t.start_time} – ${t.end_time}` : '';
+                            return (
+                              <div
+                                key={`${t.task_name}-${idx}`}
+                                className={`flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-semibold border ${
+                                  t.is_backup
+                                    ? 'bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-950/40 dark:border-amber-700/50 dark:text-amber-300'
+                                    : 'bg-sky-50 border-sky-200 text-sky-900 dark:bg-sky-950/30 dark:border-sky-800/40 dark:text-sky-300'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span>{t.task_name}</span>
+                                  {t.is_backup && (
+                                    <span className="text-[9px] font-black bg-amber-200 dark:bg-amber-800/60 text-amber-700 dark:text-amber-300 px-1 py-0.5 rounded">BKP</span>
+                                  )}
+                                </div>
+                                {timeStr && (
+                                  <span className="font-mono text-[10px] font-bold opacity-85">{timeStr}</span>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {((staff.assigned_tasks && staff.assigned_tasks.length > 0)
+                              ? staff.assigned_tasks
+                              : [staff.primary_task, staff.secondary_task].filter(Boolean)
+                            ).map((task: string) => (
+                              <span
+                                key={task}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-500/40 dark:bg-sky-950/40 dark:text-sky-300"
+                              >
+                                {task}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

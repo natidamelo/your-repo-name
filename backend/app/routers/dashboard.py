@@ -49,23 +49,43 @@ def get_dashboard_summary(
             emp_name = s.employee.first_name if s.employee else "Staff"
             pos = s.employee.position if s.employee else "Agent"
 
-            # Compute assigned tasks list
+            # Compute assigned tasks list and detailed task schedule
             task_names = []
+            task_details = []
             if s.tasks:
                 for t in s.tasks:
-                    if t.task_name and t.task_name not in task_names:
-                        task_names.append(t.task_name)
+                    if t.task_name:
+                        task_details.append({
+                            "task_name": t.task_name,
+                            "start_time": t.start_time,
+                            "end_time": t.end_time,
+                            "is_backup": bool(t.is_backup)
+                        })
+                        if t.task_name not in task_names:
+                            task_names.append(t.task_name)
             if not task_names:
                 if s.primary_task:
                     for pt in s.primary_task.split(","):
                         pt_c = pt.strip()
                         if pt_c and pt_c not in task_names:
                             task_names.append(pt_c)
+                            task_details.append({
+                                "task_name": pt_c,
+                                "start_time": s.start_time,
+                                "end_time": s.end_time,
+                                "is_backup": False
+                            })
                 if s.secondary_task:
                     for st in s.secondary_task.split(","):
                         st_c = st.strip()
                         if st_c and st_c not in task_names:
                             task_names.append(st_c)
+                            task_details.append({
+                                "task_name": st_c,
+                                "start_time": s.start_time,
+                                "end_time": s.end_time,
+                                "is_backup": True
+                            })
 
             item = {
                 "id": s.id,
@@ -77,7 +97,8 @@ def get_dashboard_summary(
                 "lunch": f"{s.lunch_start} - {s.lunch_end}" if s.lunch_start else "—",
                 "primary_task": s.primary_task,
                 "secondary_task": s.secondary_task,
-                "assigned_tasks": task_names
+                "assigned_tasks": task_names,
+                "task_details": task_details
             }
             if s.shift_type in ("WORK", "SUNDAY_DUTY", "AM_HALF", "PM_HALF"):
                 working_staff.append(item)
