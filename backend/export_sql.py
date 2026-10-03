@@ -18,6 +18,8 @@ def export_full_sql():
         'system_settings', 'audit_logs'
     ]
 
+    boolean_cols = {'is_active', 'is_work_day', 'is_weekend', 'is_backup'}
+
     out = []
     out.append('-- ====================================================================')
     out.append('-- Call Center Staff Scheduling & Management System - Complete SQL Dump')
@@ -54,10 +56,10 @@ def export_full_sql():
         out.append(f'-- Table: {tbl} ({len(rows)} rows)')
         for r in rows:
             val_strs = []
-            for val in r:
+            for col_name, val in zip(columns, r):
                 if val is None:
                     val_strs.append('NULL')
-                elif isinstance(val, bool):
+                elif col_name in boolean_cols:
                     val_strs.append('TRUE' if val else 'FALSE')
                 elif isinstance(val, (int, float)):
                     val_strs.append(str(val))
@@ -71,7 +73,6 @@ def export_full_sql():
     out.append('-- 4. Reset PostgreSQL SERIAL sequences (if using PostgreSQL)')
     out.append('DO $$')
     out.append('DECLARE')
-    out.append('    tbl text;')
     out.append('    seq text;')
     out.append('BEGIN')
     for tbl in tables_order:
