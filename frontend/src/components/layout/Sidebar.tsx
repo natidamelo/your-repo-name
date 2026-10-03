@@ -8,11 +8,12 @@ import {
   CheckSquare, 
   Sliders, 
   Printer, 
-  History,
-  LogOut,
-  Sparkles,
-  Layers,
-  ChevronRight
+  History, 
+  LogOut, 
+  Sparkles, 
+  Layers, 
+  ChevronRight,
+  X 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -20,9 +21,17 @@ interface SidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
   onOpenGenerator: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpenGenerator }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  currentTab, 
+  onSelectTab, 
+  onOpenGenerator,
+  isOpen = false,
+  onClose 
+}) => {
   const { user, role, logout, login } = useAuth();
 
   const menuItems = [
@@ -39,26 +48,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
 
   const filteredItems = menuItems.filter(item => !role || item.roles.includes(role));
 
-  return (
-    <aside className="no-print w-64 bg-card/60 backdrop-blur-md border-r border-border flex flex-col h-screen select-none shrink-0">
+  const handleTabClick = (id: string) => {
+    onSelectTab(id);
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  const renderSidebarContent = (isMobile: boolean = false) => (
+    <div className="flex flex-col h-full">
       {/* Brand Header */}
-      <div className="p-4 border-b border-border/80 flex items-center space-x-3">
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm text-primary-foreground font-bold text-sm tracking-tighter">
-          CC
+      <div className="p-4 border-b border-border/80 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <img src="/pwa-192x192.png" alt="App Logo" className="w-8 h-8 rounded-lg shadow-sm" />
+          <div className="min-w-0">
+            <h1 className="font-semibold text-foreground text-sm leading-tight tracking-tight truncate">
+              Call Center OS
+            </h1>
+            <p className="text-[11px] text-muted-foreground font-normal">Scheduling & Management</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <h1 className="font-semibold text-foreground text-sm leading-tight tracking-tight truncate">
-            Call Center OS
-          </h1>
-          <p className="text-[11px] text-muted-foreground font-normal">Scheduling & Management</p>
-        </div>
+        {isMobile && onClose && (
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
+            aria-label="Close sidebar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
-      {/* Quick Action Button - Shadcn Primary style */}
+      {/* Quick Action Button */}
       {(role === 'admin' || role === 'manager') && (
         <div className="p-3">
           <button
-            onClick={onOpenGenerator}
+            onClick={() => {
+              onOpenGenerator();
+              if (onClose) onClose();
+            }}
             className="w-full h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-xs shadow-sm flex items-center justify-center space-x-2 transition-all active:scale-[0.98]"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -67,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
         </div>
       )}
 
-      {/* Navigation Links - Shadcn Ghost Nav style */}
+      {/* Navigation Links */}
       <nav className="flex-1 px-3 py-1 space-y-1 overflow-y-auto">
         {filteredItems.map(item => {
           const Icon = item.icon;
@@ -75,56 +103,59 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
           return (
             <button
               key={item.id}
-              onClick={() => onSelectTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+              onClick={() => handleTabClick(item.id)}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
                 isActive
-                  ? 'bg-secondary text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
+                  ? 'bg-primary/10 text-primary font-semibold'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >
-              <div className="flex items-center space-x-2.5">
+              <div className="flex items-center space-x-3">
                 <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                 <span>{item.label}</span>
               </div>
-              {isActive && <ChevronRight className="w-3 h-3 text-muted-foreground/60" />}
+              {isActive && <ChevronRight className="w-3.5 h-3.5 text-primary" />}
             </button>
           );
         })}
       </nav>
 
-      {/* Role Switcher Demo Bar */}
-      <div className="p-3 bg-muted/40 border-t border-border/60">
-        <div className="flex items-center justify-between mb-1.5 px-0.5">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Role Preview</span>
-          <span className="text-[10px] font-mono text-primary uppercase">{role}</span>
+      {/* Role Switcher Demo */}
+      <div className="p-3 border-t border-border/60 bg-muted/20">
+        <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground mb-1.5 px-0.5">
+          <div className="flex items-center space-x-1">
+            <ShieldCheck className="w-3 h-3 text-primary" />
+            <span>ROLE PREVIEW</span>
+          </div>
+          <span className="text-[10px] text-primary lowercase">{role || 'staff'}</span>
         </div>
         <div className="grid grid-cols-3 gap-1">
           <button
             onClick={() => login('mock_admin_token', 'admin', 'admin')}
-            className={`px-2 py-1 text-[11px] rounded-md font-medium text-center transition ${
-              role === 'admin'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'bg-card border border-border/80 text-muted-foreground hover:text-foreground'
+            className={`h-6 text-[10px] font-medium rounded transition border ${
+              role === 'admin' 
+                ? 'bg-primary text-primary-foreground border-primary shadow-xs font-semibold' 
+                : 'bg-card hover:bg-accent text-foreground border-border'
             }`}
           >
             Admin
           </button>
           <button
             onClick={() => login('mock_manager_token', 'manager', 'manager')}
-            className={`px-2 py-1 text-[11px] rounded-md font-medium text-center transition ${
-              role === 'manager'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'bg-card border border-border/80 text-muted-foreground hover:text-foreground'
+            className={`h-6 text-[10px] font-medium rounded transition border ${
+              role === 'manager' 
+                ? 'bg-primary text-primary-foreground border-primary shadow-xs font-semibold' 
+                : 'bg-card hover:bg-accent text-foreground border-border'
             }`}
           >
             Manager
           </button>
           <button
             onClick={() => login('mock_staff_token', 'staff', 'staff')}
-            className={`px-2 py-1 text-[11px] rounded-md font-medium text-center transition ${
-              role === 'staff'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'bg-card border border-border/80 text-muted-foreground hover:text-foreground'
+            className={`h-6 text-[10px] font-medium rounded transition border ${
+              role === 'staff' 
+                ? 'bg-primary text-primary-foreground border-primary shadow-xs font-semibold' 
+                : 'bg-card hover:bg-accent text-foreground border-border'
             }`}
           >
             Staff
@@ -135,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
       {/* User Info & Logout */}
       <div className="p-3 border-t border-border flex items-center justify-between bg-card/40">
         <div className="flex items-center space-x-2.5 overflow-hidden">
-          <div className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-[10px] text-primary">
+          <div className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-[10px] text-primary shrink-0">
             {user?.username ? user.username.slice(0, 2).toUpperCase() : 'CC'}
           </div>
           <div className="truncate">
@@ -153,6 +184,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
           <LogOut className="w-3.5 h-3.5" />
         </button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar (hidden on mobile, visible on md and up) */}
+      <aside className="no-print hidden md:flex w-64 bg-card/60 backdrop-blur-md border-r border-border flex-col h-screen select-none shrink-0">
+        {renderSidebarContent(false)}
+      </aside>
+
+      {/* Mobile Drawer (visible only on mobile when isOpen is true) */}
+      {isOpen && (
+        <div className="no-print fixed inset-0 z-50 md:hidden">
+          {/* Dark Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            onClick={onClose}
+          />
+          {/* Sliding Drawer */}
+          <aside className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-card border-r border-border h-full shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
+            {renderSidebarContent(true)}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

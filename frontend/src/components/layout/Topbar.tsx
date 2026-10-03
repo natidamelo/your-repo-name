@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Download, Printer, AlertTriangle, CheckCircle2, RotateCw } from 'lucide-react';
+import { Calendar, Download, Printer, AlertTriangle, CheckCircle2, RotateCw, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { exportScheduleExcel } from '../../api/client';
 import { ThemeToggle } from './ThemeToggle';
@@ -18,6 +18,7 @@ interface TopbarProps {
   conflictsCount?: number;
   onRefresh?: () => void;
   onPrint?: () => void;
+  onToggleSidebar?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -26,7 +27,8 @@ export const Topbar: React.FC<TopbarProps> = ({
   dateRange,
   conflictsCount = 0,
   onRefresh,
-  onPrint
+  onPrint,
+  onToggleSidebar
 }) => {
   const { role } = useAuth();
   const todayStr = new Date().toLocaleDateString('en-US', {
@@ -45,19 +47,28 @@ export const Topbar: React.FC<TopbarProps> = ({
   };
 
   return (
-    <header className="no-print h-14 bg-card/60 backdrop-blur-md border-b border-border px-6 flex items-center justify-between z-10 shrink-0">
-      {/* Left: Schedule Context */}
-      <div className="flex items-center space-x-3 text-xs">
-        <div className="flex items-center space-x-1.5 text-muted-foreground">
+    <header className="no-print h-14 bg-card/60 backdrop-blur-md border-b border-border px-3 sm:px-6 flex items-center justify-between z-10 shrink-0">
+      {/* Left: Hamburger (mobile) & Schedule Context */}
+      <div className="flex items-center space-x-2 sm:space-x-3 text-xs overflow-hidden">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-foreground shrink-0 transition active:scale-95"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        )}
+        <div className="hidden sm:flex items-center space-x-1.5 text-muted-foreground">
           <Calendar className="w-3.5 h-3.5 text-primary" />
           <span>{todayStr}</span>
         </div>
-        <div className="h-3 w-px bg-border" />
-        <div className="flex items-center space-x-2">
-          <span className="text-muted-foreground">Active:</span>
-          <span className="inline-flex items-center space-x-1.5 rounded-full border border-border bg-secondary/80 px-2.5 py-0.5 text-xs font-medium text-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{activeScheduleName}</span>
+        <div className="hidden sm:block h-3 w-px bg-border" />
+        <div className="flex items-center space-x-1.5 truncate">
+          <span className="text-muted-foreground hidden xs:inline">Active:</span>
+          <span className="inline-flex items-center space-x-1.5 rounded-full border border-border bg-secondary/80 px-2 sm:px-2.5 py-0.5 text-[11px] sm:text-xs font-medium text-foreground truncate">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="truncate">{activeScheduleName}</span>
           </span>
         </div>
       </div>

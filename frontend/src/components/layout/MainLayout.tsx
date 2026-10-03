@@ -27,12 +27,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onPrint,
   children
 }) => {
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState(false);
+
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
       <Sidebar
         currentTab={currentTab}
         onSelectTab={onSelectTab}
         onOpenGenerator={onOpenGenerator}
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar
@@ -42,9 +46,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           conflictsCount={conflictsCount}
           onRefresh={onRefresh}
           onPrint={onPrint}
+          onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
         />
-        <main className="flex-1 overflow-y-auto p-6 bg-background">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 bg-background">
+          <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
             {children}
           </div>
         </main>
