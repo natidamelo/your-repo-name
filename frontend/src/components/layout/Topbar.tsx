@@ -1,9 +1,10 @@
 import React from 'react';
-import { Calendar, Download, Printer, AlertTriangle, CheckCircle2, RotateCw, Menu } from 'lucide-react';
+import { Calendar, Download, Printer, AlertTriangle, CheckCircle2, RotateCw, Menu, Key } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { exportScheduleExcel } from '../../api/client';
 import { ThemeToggle } from './ThemeToggle';
 import { InstallAppButton } from './InstallAppButton';
+import { ShiftKeyLegendModal } from '../schedule/ShiftKeyLegendModal';
 
 export interface DateRangeInfo {
   startDate?: string;
@@ -31,6 +32,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   onToggleSidebar
 }) => {
   const { role } = useAuth();
+  const [isShiftKeyOpen, setIsShiftKeyOpen] = React.useState(false);
   const todayStr = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -87,6 +89,17 @@ export const Topbar: React.FC<TopbarProps> = ({
           </div>
         )}
 
+        {/* Guzo Go Shift Key & Legend Button */}
+        <button
+          type="button"
+          onClick={() => setIsShiftKeyOpen(true)}
+          title="View Guzo Go Schedule Key & Legend (E-M, M-M, M-HD, A-HD, Tasks)"
+          className="h-8 px-2.5 rounded-md border border-input bg-background hover:bg-accent text-foreground text-xs font-semibold inline-flex items-center space-x-1.5 transition active:scale-[0.98]"
+        >
+          <Key className="w-3.5 h-3.5 text-primary" />
+          <span className="hidden xs:inline">Shift Key</span>
+        </button>
+
         {/* Install Mobile App Button */}
         <InstallAppButton />
 
@@ -129,6 +142,12 @@ export const Topbar: React.FC<TopbarProps> = ({
           </button>
         )}
       </div>
+
+      {/* Shift Key & Legend Modal */}
+      <ShiftKeyLegendModal
+        isOpen={isShiftKeyOpen}
+        onClose={() => setIsShiftKeyOpen(false)}
+      />
     </header>
   );
 };

@@ -1,7 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
-import { X, Clock, Briefcase, Coffee, Check, Plus, AlertCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Clock, Briefcase, Coffee, Check, Plus, AlertCircle, AlertTriangle, ShieldAlert, Key } from 'lucide-react';
 import { ShiftAssignment, ShiftType } from '../../types';
 import { updateShiftApi } from '../../api/client';
+import { GUZO_SHIFT_PRESETS, getGuzoTaskAbbr } from '../../utils/guzoKey';
 
 interface TaskWithTime {
   id: string;
@@ -19,7 +20,7 @@ interface ShiftEditModalProps {
   onUpdated: () => void;
 }
 
-const AVAILABLE_TASKS = ['Call Center', 'Telegram', 'GDS', 'Amadeus', '2839 phone', 'Email', 'ELMS', 'QUE'];
+const AVAILABLE_TASKS = ['Call Center', 'Telegram', 'GDS', 'Amadeus', '2839 phone', 'Email', 'ELMS', 'QUE', 'Follow up'];
 
 const TASK_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
   'Call Center': { bg: 'bg-emerald-50 dark:bg-emerald-950/30', text: 'text-emerald-800 dark:text-emerald-300', border: 'border-emerald-300 dark:border-emerald-700', dot: 'bg-emerald-500' },
@@ -30,6 +31,7 @@ const TASK_COLORS: Record<string, { bg: string; text: string; border: string; do
   'Email':       { bg: 'bg-cyan-50 dark:bg-cyan-950/30',       text: 'text-cyan-800 dark:text-cyan-300',       border: 'border-cyan-300 dark:border-cyan-700',     dot: 'bg-cyan-500'   },
   'ELMS':        { bg: 'bg-amber-50 dark:bg-amber-950/30',     text: 'text-amber-800 dark:text-amber-300',     border: 'border-amber-300 dark:border-amber-700',   dot: 'bg-amber-500'  },
   'QUE':         { bg: 'bg-pink-50 dark:bg-pink-950/30',       text: 'text-pink-800 dark:text-pink-300',       border: 'border-pink-300 dark:border-pink-700',     dot: 'bg-pink-500'   },
+  'Follow up':   { bg: 'bg-teal-50 dark:bg-teal-950/30',       text: 'text-teal-800 dark:text-teal-300',       border: 'border-teal-300 dark:border-teal-700',     dot: 'bg-teal-500'   },
 };
 
 const col = (name: string) =>
@@ -173,13 +175,59 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
 
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
 
+          {/* Guzo Go Schedule Key Presets */}
+          <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/[0.03] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-primary" />
+                Guzo Go Shift Key Presets
+              </label>
+              <span className="text-[10px] text-muted-foreground font-medium">Click key to apply hours &amp; lunch</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {GUZO_SHIFT_PRESETS.map((p) => {
+                const isSelected = p.shiftType === shiftType &&
+                  (p.shiftType === 'OFF' || (p.startTime === startTime && p.endTime === endTime));
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => {
+                      setShiftType(p.shiftType);
+                      if (p.shiftType !== 'OFF') {
+                        setStartTime(p.startTime);
+                        setEndTime(p.endTime);
+                        if (p.defaultLunchStart) setLunchStart(p.defaultLunchStart);
+                        if (p.defaultLunchEnd) setLunchEnd(p.defaultLunchEnd);
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl text-left border transition text-xs flex flex-col justify-between cursor-pointer ${
+                      isSelected
+                        ? `${p.badgeClass} ring-2 ring-primary shadow-xs font-bold`
+                        : 'bg-background hover:bg-accent border-border text-foreground hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="font-mono font-bold text-xs">{p.key}</span>
+                      <span className="text-[9px] uppercase font-semibold opacity-70">{p.shiftType}</span>
+                    </div>
+                    <div className="text-[11px] font-semibold truncate mt-1">{p.name}</div>
+                    <div className="text-[10px] opacity-75 font-mono mt-0.5">
+                      {p.startTime ? `${p.startTime}–${p.endTime}` : 'Day Off'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
-            <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-2">Shift Status</label>
+            <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-2">Manual Shift Status</label>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
               {shiftOpts.map(o => (
                 <button key={o.type} type="button" onClick={() => setShiftType(o.type as ShiftType)}
                   className={`h-9 px-2 rounded-lg text-xs font-medium border text-center transition ${
-                    shiftType === o.type ? `${o.cls} ring-1 ring-ring` : 'bg-background text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                    shiftType === o.type ? `${o.cls} ring-1 ring-ring font-bold` : 'bg-background text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground'
                   }`}>
                   {o.label}
                 </button>
@@ -245,11 +293,14 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
                       return (
                         <div key={name} className="flex items-center">
                           <button type="button" onClick={() => addTask(name, false)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-l-lg text-xs font-medium border-y border-l transition ${
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-l-lg text-xs font-medium border-y border-l transition ${
                               already ? `${c.bg} ${c.text} ${c.border}` : 'bg-background text-foreground border-border hover:bg-accent cursor-pointer'
                             }`}>
                             {already ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                            {name}
+                            <span className="font-mono text-[10px] font-bold px-1 py-0.5 rounded bg-muted/60 text-foreground border border-border/60">
+                              {getGuzoTaskAbbr(name)}
+                            </span>
+                            <span>{name}</span>
                           </button>
                           <button type="button" onClick={() => addTask(name, true)}
                             className="inline-flex items-center px-1.5 py-1.5 rounded-r-lg text-[10px] font-bold border border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition"

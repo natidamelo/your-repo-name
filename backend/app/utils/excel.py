@@ -74,6 +74,66 @@ def get_shift_tasks(s):
                     })
     return tasks
 
+def get_guzo_shift_key(start_time: str, end_time: str, shift_type: str, notes: str = "") -> str:
+    """
+    Returns the standard Guzo Go shift key code:
+    E-M, M-M, M-HD, M-LHD, A-HD, A-LHD, DO, A-L
+    """
+    n = (notes or "").lower()
+    if "annual" in n or "leave" in n or "vacation" in n:
+        return "A-L"
+    if shift_type == "OFF":
+        return "DO"
+    s = (start_time or "").strip()
+    e = (end_time or "").strip()
+    if s == "08:00" and e == "17:00":
+        return "E-M"
+    if s == "09:00" and e == "18:00":
+        return "M-M"
+    if s == "08:00" and e == "12:00":
+        return "M-HD"
+    if s == "09:00" and e == "13:00":
+        return "M-LHD"
+    if s == "13:00" and e == "17:00":
+        return "A-HD"
+    if s == "14:00" and e == "18:00":
+        return "A-LHD"
+    if shift_type == "AM_HALF":
+        return "M-HD"
+    if shift_type == "PM_HALF":
+        return "A-HD"
+    if shift_type == "SUNDAY_DUTY":
+        return "SUN"
+    return "E-M"
+
+def get_guzo_task_abbr(task_name: str) -> str:
+    """
+    Converts task name into compact WPS task key abbreviation:
+    Call Center -> C, Telegram -> T, Email -> E, QUE -> Q, Follow up -> F, ELMS -> ELMS, 2839 -> 2839
+    """
+    t = (task_name or "").lower().strip()
+    if "call center" in t:
+        return "C"
+    if "telegram" in t:
+        return "T"
+    if "email" in t:
+        return "E"
+    if "que" in t:
+        return "Q"
+    if "follow" in t:
+        return "F"
+    if "elms" in t:
+        return "ELMS"
+    if "2839" in t:
+        return "2839"
+    if "backup" in t or "bkp" in t:
+        return "BKP"
+    if "gds" in t:
+        return "GDS"
+    if "amadeus" in t:
+        return "Amadeus"
+    return task_name[:4].upper()
+
 def calculate_duration_str(start_str: str, end_str: str) -> str:
     try:
         if not start_str or not end_str:
@@ -159,23 +219,35 @@ def create_schedule_excel_workbook(period, days, shifts_by_day, conflicts, cover
             st = s.shift_type if s else "OFF"
 
             if st == "OFF" or not s:
-                cell.value = "OFF\nRest Day"
-                cell.font = Font(name="Calibri", size=9, bold=False, color="64748B")
+                notes = getattr(s, "notes", "") or ""
+                guzo_key = get_guzo_shift_key("", "", "OFF", notes)
+                if guzo_key == "A-L":
+                    cell.value = "A-L\nAnnual Leave"
+                    cell.font = Font(name="Calibri", size=9, bold=True, color="BE123C")
+                    cell.fill = FILL_CRITICAL
+                else:
+                    cell.value = "DO\nDay Off"
+                    cell.font = Font(name="Calibri", size=9, bold=True, color="64748B")
+                    cell.fill = FILL_OFF
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                cell.fill = FILL_OFF
             else:
-                type_display = {
-                    "WORK": "WORK",
-                    "AM_HALF": "AM HALF",
-                    "PM_HALF": "PM HALF",
-                    "SUNDAY_DUTY": "SUNDAY"
-                }.get(st, st)
+                notes = getattr(s, "notes", "") or ""
+                guzo_key = get_guzo_shift_key(s.start_time or "", s.end_time or "", st, notes)
+                tasks = get_shift_tasks(s)
 
+                task_abbrs = []
+                for t in tasks:
+                    abbr = get_guzo_task_abbr(t["name"])
+                    if t.get("is_backup"):
+                        abbr = f"{abbr}-BKP"
+                    if abbr not in task_abbrs:
+                        task_abbrs.append(abbr)
+
+                notation_part = f"{guzo_key}: {'/'.join(task_abbrs)}" if task_abbrs else guzo_key
                 hours_header = f"{s.start_time}–{s.end_time}" if (s.start_time and s.end_time) else ""
                 lunch_info = f" [Lunch: {s.lunch_start}–{s.lunch_end}]" if (s.lunch_start and s.lunch_end) else ""
-                header_line = f"[{type_display} {hours_header}]{lunch_info}".strip() if hours_header else f"[{type_display}]{lunch_info}"
+                header_line = f"[{notation_part}] {hours_header}{lunch_info}".strip()
 
-                tasks = get_shift_tasks(s)
                 task_lines = []
                 for t in tasks:
                     time_part = f"({t['start']}–{t['end']})" if (t['start'] and t['end']) else ""
@@ -215,20 +287,204 @@ def create_schedule_excel_workbook(period, days, shifts_by_day, conflicts, cover
     for col_idx in range(3, len(sorted_days) + 3):
         ws1.column_dimensions[get_column_letter(col_idx)].width = 28
 
-    # Legend at the bottom of Sheet 1
-    legend_row = row_num + 1
+    # Guzo Go Schedule Key Legend Block at the bottom of Sheet 1
+    legend_row = row_num + 2
     ws1.merge_cells(f"A{legend_row}:{last_col_letter}{legend_row}")
-    l_cell = ws1[f"A{legend_row}"]
-    l_cell.value = (
-        "Legend: [WORK] Full Shift  |  [OFF] Day Off  |  [AM HALF] Saturday Morning  |  "
-        "[PM HALF] Saturday Afternoon  |  [SUNDAY] Operating Squad  |  [BKP] Standby / Afternoon Backup Slot"
-    )
-    l_cell.font = Font(name="Calibri", size=9, italic=True, color="475569")
-    l_cell.alignment = Alignment(horizontal="center", vertical="center")
+    l_header = ws1[f"A{legend_row}"]
+    l_header.value = "GUZO GO SCHEDULE KEY & LEGEND"
+    l_header.font = Font(name="Calibri", size=11, bold=True, color=WHITE)
+    l_header.fill = PatternFill(start_color=NAVY_HEADER, end_color=NAVY_HEADER, fill_type="solid")
+    l_header.alignment = Alignment(horizontal="center", vertical="center")
     ws1.row_dimensions[legend_row].height = 24
 
+    legend_rows_content = [
+        "SHIFT KEYS: [E-M] Early Morning (08:00–17:00)  |  [M-M] Mid Morning (09:00–18:00)  |  [M-HD] Morning Half Day (08:00–12:00)  |  [M-LHD] Morning Late Half Day (09:00–13:00)",
+        "HALF DAYS & LEAVE: [A-HD] Afternoon Half Day (13:00–17:00)  |  [A-LHD] Afternoon Late Half Day (14:00–18:00)  |  [DO] Day Off  |  [A-L] Annual Leave",
+        "TASK KEY ABBREVIATIONS: [C] Call Center  |  [/T] Telegram  |  [/E] Email  |  [/Q] Queue  |  [F] Follow up  |  [ELMS] ELMS  |  [2839] 2839 Hotline  |  [BKP] Secondary Backup",
+        "LUNCH INTERVALS: [Lunch Break] 12:00–13:00 (Early Morning Squad)  //  13:00–14:00 (Mid Morning Squad)"
+    ]
+    for idx, text in enumerate(legend_rows_content, start=1):
+        lr = legend_row + idx
+        ws1.merge_cells(f"A{lr}:{last_col_letter}{lr}")
+        c = ws1[f"A{lr}"]
+        c.value = text
+        c.font = Font(name="Calibri", size=9, bold=(idx == 1))
+        c.alignment = Alignment(horizontal="left", vertical="center")
+        c.fill = FILL_ZEBRA if idx % 2 == 0 else PatternFill(start_color=WHITE, end_color=WHITE, fill_type="solid")
+        c.border = border
+        ws1.row_dimensions[lr].height = 20
+
     # -------------------------------------------------------------
-    # SHEET 2: Daily Call-Center Coverage
+    # SHEET 2: Guzo Go Schedule Key & Legend (Exact WPS Reference)
+    # -------------------------------------------------------------
+    ws_key = wb.create_sheet(title="Schedule Key & Legend")
+    ws_key.views.sheetView[0].showGridLines = True
+
+    # Title Banner
+    ws_key.merge_cells("A1:D1")
+    t_key = ws_key["A1"]
+    t_key.value = "GUZO GO SCHEDULE KEY & TASK ABBREVIATIONS REFERENCE"
+    t_key.font = Font(name="Calibri", size=13, bold=True, color=WHITE)
+    t_key.fill = PatternFill(start_color=NAVY_HEADER, end_color=NAVY_HEADER, fill_type="solid")
+    t_key.alignment = Alignment(horizontal="center", vertical="center")
+    ws_key.row_dimensions[1].height = 36
+
+    # Section 1: Shift Codes & Intervals
+    ws_key.merge_cells("A3:D3")
+    s1_hdr = ws_key["A3"]
+    s1_hdr.value = "1. SHIFT CODES & TIME INTERVALS"
+    s1_hdr.font = Font(name="Calibri", size=11, bold=True, color=DARK_TEXT)
+    s1_hdr.fill = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
+    s1_hdr.alignment = Alignment(horizontal="left", vertical="center")
+    ws_key.row_dimensions[3].height = 24
+
+    ws_key.row_dimensions[4].height = 24
+    style_header_cell(ws_key["A4"], "Shift Key")
+    style_header_cell(ws_key["B4"], "Stands For")
+    style_header_cell(ws_key["C4"], "Time Interval")
+    style_header_cell(ws_key["D4"], "Category / Lunch Window")
+
+    shift_key_table = [
+        ("E-M",   "Early Morning",           "08:00 – 17:00", "Full Day Shift · Lunch: 12:00–13:00 / 13:00–14:00", FILL_WORK),
+        ("M-M",   "Mid Morning",             "09:00 – 18:00", "Full Day Shift · Lunch: 13:00–14:00",               FILL_AM),
+        ("M-HD",  "Morning Half Day",        "08:00 – 12:00", "Half Day (Saturday Early Morning)",                FILL_AM),
+        ("M-LHD", "Morning Late Half Day",   "09:00 – 13:00", "Half Day (Saturday Mid Morning)",                  FILL_BACKUP),
+        ("A-HD",  "Afternoon Half Day",      "13:00 – 17:00", "Half Day (Saturday Afternoon)",                    FILL_PM),
+        ("A-LHD", "Afternoon Late Half Day", "14:00 – 18:00", "Half Day (Saturday Late Afternoon)",               FILL_SUNDAY),
+        ("DO",    "Day Off",                 "Full Day Off",  "Scheduled Weekly Rest Day",                         FILL_OFF),
+        ("A-L",   "Annual Leave",            "Approved Leave","Authorized Annual Vacation / Leave",                FILL_CRITICAL),
+    ]
+
+    r_idx = 5
+    for k, stands, t_int, cat, f_col in shift_key_table:
+        ws_key.row_dimensions[r_idx].height = 22
+        c_k = ws_key[f"A{r_idx}"]
+        c_k.value = k
+        c_k.font = Font(name="Calibri", size=10, bold=True)
+        c_k.fill = f_col
+        c_k.alignment = Alignment(horizontal="center", vertical="center")
+        c_k.border = border
+
+        c_s = ws_key[f"B{r_idx}"]
+        c_s.value = stands
+        c_s.font = Font(name="Calibri", size=10, bold=True)
+        c_s.alignment = Alignment(horizontal="left", vertical="center")
+        c_s.border = border
+
+        c_t = ws_key[f"C{r_idx}"]
+        c_t.value = t_int
+        c_t.font = Font(name="Calibri", size=10)
+        c_t.alignment = Alignment(horizontal="center", vertical="center")
+        c_t.border = border
+
+        c_c = ws_key[f"D{r_idx}"]
+        c_c.value = cat
+        c_c.font = Font(name="Calibri", size=9, color="475569")
+        c_c.alignment = Alignment(horizontal="left", vertical="center")
+        c_c.border = border
+
+        r_idx += 1
+
+    # Section 2: Task Key Abbreviations
+    r_idx += 1
+    ws_key.merge_cells(f"A{r_idx}:D{r_idx}")
+    s2_hdr = ws_key[f"A{r_idx}"]
+    s2_hdr.value = "2. TASK & CHANNEL ABBREVIATIONS"
+    s2_hdr.font = Font(name="Calibri", size=11, bold=True, color=DARK_TEXT)
+    s2_hdr.fill = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
+    s2_hdr.alignment = Alignment(horizontal="left", vertical="center")
+    ws_key.row_dimensions[r_idx].height = 24
+    r_idx += 1
+
+    ws_key.row_dimensions[r_idx].height = 24
+    style_header_cell(ws_key[f"A{r_idx}"], "Task Key")
+    style_header_cell(ws_key[f"B{r_idx}"], "Stands For")
+    ws_key.merge_cells(f"C{r_idx}:D{r_idx}")
+    style_header_cell(ws_key[f"C{r_idx}"], "Description & Channel Scope")
+    r_idx += 1
+
+    task_key_table = [
+        ("C",           "Call Center", "Inbound customer telephone call handling"),
+        ("T  (or /T)",  "Telegram",    "Telegram customer chat assistance"),
+        ("E  (or /E)",  "Email",       "Customer email support and ticket responses"),
+        ("Q  (or /Q)",  "Queue",       "Live queue and ticket status monitoring"),
+        ("F",           "Follow up",   "Case and ticket issue follow-up resolution"),
+        ("ELMS",        "ELMS",        "ELMS booking, reservation & verification system"),
+        ("2839",        "2839",        "Direct 2839 hotline channel"),
+        ("BKP",         "Backup",      "Designated standby / secondary coverage agent"),
+        ("Lunch Break", "Lunch Break", "12:00–13:00 (Early Squad)  //  13:00–14:00 (Mid Squad)"),
+    ]
+
+    for tk, t_name, t_desc in task_key_table:
+        ws_key.row_dimensions[r_idx].height = 20
+        c_tk = ws_key[f"A{r_idx}"]
+        c_tk.value = tk
+        c_tk.font = Font(name="Calibri", size=10, bold=True)
+        c_tk.alignment = Alignment(horizontal="center", vertical="center")
+        c_tk.border = border
+        c_tk.fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+
+        c_tn = ws_key[f"B{r_idx}"]
+        c_tn.value = t_name
+        c_tn.font = Font(name="Calibri", size=10, bold=True)
+        c_tn.alignment = Alignment(horizontal="left", vertical="center")
+        c_tn.border = border
+
+        ws_key.merge_cells(f"C{r_idx}:D{r_idx}")
+        c_td = ws_key[f"C{r_idx}"]
+        c_td.value = t_desc
+        c_td.font = Font(name="Calibri", size=9, color="334155")
+        c_td.alignment = Alignment(horizontal="left", vertical="center")
+        c_td.border = border
+        ws_key[f"D{r_idx}"].border = border
+        r_idx += 1
+
+    # Section 3: Notation Examples
+    r_idx += 1
+    ws_key.merge_cells(f"A{r_idx}:D{r_idx}")
+    s3_hdr = ws_key[f"A{r_idx}"]
+    s3_hdr.value = "3. SAMPLE CELL NOTATIONS"
+    s3_hdr.font = Font(name="Calibri", size=11, bold=True, color=DARK_TEXT)
+    s3_hdr.fill = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
+    s3_hdr.alignment = Alignment(horizontal="left", vertical="center")
+    ws_key.row_dimensions[r_idx].height = 24
+    r_idx += 1
+
+    examples = [
+        ("E-M: C/ELMS",    "Early Morning shift (08:00–17:00) handling Call Center and ELMS"),
+        ("M-M: E/T/C-BKP", "Mid Morning shift (09:00–18:00) assigned to Email & Telegram, with Call Center Backup"),
+        ("M-HD: C",        "Morning Half Day (08:00–12:00) on Call Center duty"),
+        ("A-LHD: C",       "Afternoon Late Half Day (14:00–18:00) on Call Center duty"),
+        ("DO",             "Day Off (Rest Day)"),
+        ("A-L",            "Annual Leave (Approved leave request)")
+    ]
+
+    for ex_code, ex_exp in examples:
+        ws_key.row_dimensions[r_idx].height = 20
+        c_ec = ws_key[f"A{r_idx}"]
+        c_ec.value = ex_code
+        c_ec.font = Font(name="Calibri", size=10, bold=True, color="0369A1")
+        c_ec.alignment = Alignment(horizontal="center", vertical="center")
+        c_ec.fill = PatternFill(start_color="F0F9FF", end_color="F0F9FF", fill_type="solid")
+        c_ec.border = border
+
+        ws_key.merge_cells(f"B{r_idx}:D{r_idx}")
+        c_ee = ws_key[f"B{r_idx}"]
+        c_ee.value = ex_exp
+        c_ee.font = Font(name="Calibri", size=9, color="334155")
+        c_ee.alignment = Alignment(horizontal="left", vertical="center")
+        c_ee.border = border
+        ws_key[f"C{r_idx}"].border = border
+        ws_key[f"D{r_idx}"].border = border
+        r_idx += 1
+
+    ws_key.column_dimensions["A"].width = 18
+    ws_key.column_dimensions["B"].width = 28
+    ws_key.column_dimensions["C"].width = 24
+    ws_key.column_dimensions["D"].width = 46
+
+    # -------------------------------------------------------------
+    # SHEET 3: Daily Call-Center Coverage
     # -------------------------------------------------------------
     ws2 = wb.create_sheet(title="Daily Coverage")
     ws2.views.sheetView[0].showGridLines = True

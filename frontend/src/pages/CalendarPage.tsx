@@ -19,10 +19,13 @@ import {
   Eye,
   EyeOff,
   Coffee,
+  Key,
 } from 'lucide-react';
 import { getSchedulesApi, getScheduleApi, getExcelExportUrl, exportScheduleExcel } from '../api/client';
 import { SchedulePeriod, ScheduleDay, ShiftAssignment } from '../types';
 import { ShiftEditModal } from '../components/calendar/ShiftEditModal';
+import { ShiftKeyLegendModal } from '../components/schedule/ShiftKeyLegendModal';
+import { getGuzoShiftKey, getGuzoCellNotation, GUZO_SHIFT_PRESETS, GUZO_TASK_CODES } from '../utils/guzoKey';
 import { useAuth } from '../context/AuthContext';
 
 interface CalendarPageProps {
@@ -75,6 +78,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   const [shiftFilter, setShiftFilter] = useState<'all' | 'WORK' | 'OFF' | 'SUNDAY_DUTY'>('all');
   const [showLegend, setShowLegend] = useState(false);
   const [showLunchTime, setShowLunchTime] = useState<boolean>(true);
+  const [isShiftKeyModalOpen, setIsShiftKeyModalOpen] = useState<boolean>(false);
 
   // Shift Editing State
   const [selectedShift, setSelectedShift] = useState<ShiftAssignment | null>(null);
@@ -367,11 +371,19 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       );
     }
 
+    const guzoInfo = getGuzoShiftKey(shift.start_time, shift.end_time, shift.shift_type, shift.notes);
+    const guzoNotation = getGuzoCellNotation(shift);
+
     if (shift.shift_type === 'OFF') {
+      const isLeave = guzoInfo.key === 'A-L';
       return (
-        <div className="py-2.5 px-2 rounded-lg border border-slate-200 bg-slate-100/70 text-slate-700 dark:border-border dark:bg-muted/20 dark:text-muted-foreground text-[11px] text-center flex flex-col items-center justify-center min-h-[62px]">
-          <span className="font-bold text-slate-700 dark:text-muted-foreground/90 tracking-wider">OFF</span>
-          <span className="text-[10px] text-slate-500 dark:text-muted-foreground/60 font-medium">Rest Day</span>
+        <div className={`py-2 px-1.5 rounded-lg border text-center flex flex-col items-center justify-center min-h-[64px] transition ${
+          isLeave
+            ? 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300'
+            : 'border-slate-200 bg-slate-100/70 text-slate-700 dark:border-border dark:bg-muted/20 dark:text-muted-foreground'
+        }`}>
+          <span className="font-mono font-black text-xs sm:text-sm tracking-wider">{guzoInfo.key}</span>
+          <span className="text-[10px] opacity-75 font-medium">{guzoInfo.name}</span>
         </div>
       );
     }
@@ -392,12 +404,31 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
     return (
       <div className={`p-1.5 rounded-lg border ${badgeBorder} flex flex-col justify-between min-h-[64px] gap-1 shadow-xs`}>
+        {/* Header with Guzo Key Code */}
         <div className="flex items-center justify-between gap-1 leading-tight">
-          <span className="font-bold text-[11px] uppercase tracking-wide">{typeLabel}</span>
-          <span className="text-[10px] font-mono opacity-85">
+          <div className="flex items-center gap-1 min-w-0">
+            <span
+              className="font-mono font-bold text-[10px] px-1 py-0.2 rounded bg-black/10 dark:bg-white/10 shrink-0 border border-current/20"
+              title={`${guzoInfo.key} — ${guzoInfo.name}`}
+            >
+              {guzoInfo.key}
+            </span>
+            <span className="font-bold text-[10px] uppercase tracking-wide truncate opacity-80">{typeLabel}</span>
+          </div>
+          <span className="text-[10px] font-mono opacity-85 shrink-0">
             {shift.start_time ? `${shift.start_time}–${shift.end_time}` : ''}
           </span>
         </div>
+
+        {/* Guzo Cell Notation Badge (e.g. E-M: C/ELMS) */}
+        {guzoNotation && (
+          <div
+            className="text-[9.5px] font-mono font-bold truncate opacity-90 px-1 py-0.5 rounded bg-muted/40 border border-border/40"
+            title={`Guzo Notation: ${guzoNotation}`}
+          >
+            {guzoNotation}
+          </div>
+        )}
 
         {/* Lunch break time badge */}
         {showLunchTime && shift.lunch_start && shift.lunch_end && (
@@ -852,9 +883,20 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           Lunch: {showLunchTime ? 'Shown' : 'Hidden'}
         </button>
 
+        {/* Guzo Go Shift Key Modal Trigger */}
+        <button
+          type="button"
+          onClick={() => setIsShiftKeyModalOpen(true)}
+          className="h-7 px-2.5 rounded-md text-[11px] font-semibold transition flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 cursor-pointer shadow-2xs ml-auto"
+          title="View full Guzo Go Shift Key and Legend"
+        >
+          <Key className="w-3.5 h-3.5 text-primary" />
+          <span>Shift Key</span>
+        </button>
+
         {/* Toggle legend */}
         <button onClick={() => setShowLegend(!showLegend)}
-          className={`h-7 px-2.5 rounded-md text-[11px] font-semibold transition flex items-center gap-1 ml-auto ${
+          className={`h-7 px-2.5 rounded-md text-[11px] font-semibold transition flex items-center gap-1 ${
             showLegend
               ? 'bg-primary/10 text-primary border border-primary/30'
               : 'bg-secondary text-muted-foreground hover:text-foreground border border-border'
@@ -867,45 +909,57 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
       {/* ── Collapsible Legend ──────────────────────────────── */}
       {showLegend && (
-        <div className="p-3.5 rounded-lg border border-border bg-card text-xs space-y-2.5 shadow-2xs animate-fade-in">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-foreground font-semibold mr-1">Shift Legend:</span>
-            <span className="inline-flex items-center rounded-md border border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 px-2 py-0.5 font-medium">
-              WORK (Full Shift)
-            </span>
-            <span className="inline-flex items-center rounded-md border border-slate-300 bg-slate-100 text-slate-700 dark:border-border dark:bg-muted/40 dark:text-muted-foreground px-2 py-0.5 font-medium">
-              OFF (Day Off)
-            </span>
-            <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 px-2 py-0.5 font-medium">
-              AM HALF (Saturday)
-            </span>
-            <span className="inline-flex items-center rounded-md border border-purple-300 bg-purple-100 text-purple-800 dark:border-purple-800/50 dark:bg-purple-950/40 dark:text-purple-300 px-2 py-0.5 font-medium">
-              PM HALF (Saturday)
-            </span>
-            <span className="inline-flex items-center rounded-md border border-indigo-300 bg-indigo-100 text-indigo-800 dark:border-indigo-700/60 dark:bg-indigo-950/60 dark:text-indigo-300 px-2 py-0.5 font-medium">
-              SUNDAY DUTY (Exactly 4)
-            </span>
+        <div className="p-4 rounded-xl border border-border bg-card text-xs space-y-3.5 shadow-2xs animate-fade-in">
+          {/* Guzo Go Schedule Shift Keys */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-foreground font-bold flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                <Key className="w-3.5 h-3.5 text-primary" />
+                Guzo Go Shift Key Codes
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsShiftKeyModalOpen(true)}
+                className="text-primary hover:underline text-[11px] font-semibold"
+              >
+                Open Full Modal &rarr;
+              </button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
+              {GUZO_SHIFT_PRESETS.map((p) => (
+                <div
+                  key={p.key}
+                  className={`p-2 rounded-lg border text-center flex flex-col justify-between ${p.badgeClass}`}
+                >
+                  <span className="font-mono font-black text-xs">{p.key}</span>
+                  <span className="text-[10px] font-semibold truncate mt-0.5">{p.name}</span>
+                  <span className="text-[9px] opacity-75 font-mono mt-0.5">{p.startTime ? `${p.startTime}–${p.endTime}` : 'Day Off'}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Task Channels Color Legend */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border">
-            <span className="text-foreground font-semibold mr-1">Task Badges:</span>
-            <span className="px-1.5 py-0.5 rounded border border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/60 dark:text-sky-300 text-[10px] font-semibold">Call Center</span>
-            <span className="px-1.5 py-0.5 rounded border border-cyan-300 bg-cyan-100 text-cyan-900 dark:border-cyan-500/40 dark:bg-cyan-950/60 dark:text-cyan-300 text-[10px] font-semibold">Telegram</span>
-            <span className="px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/60 dark:text-emerald-300 text-[10px] font-semibold">GDS</span>
-            <span className="px-1.5 py-0.5 rounded border border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-semibold">Amadeus</span>
-            <span className="px-1.5 py-0.5 rounded border border-purple-300 bg-purple-100 text-purple-900 dark:border-purple-500/40 dark:bg-purple-950/60 dark:text-purple-300 text-[10px] font-semibold">2839 phone</span>
-            <span className="px-1.5 py-0.5 rounded border border-blue-300 bg-blue-100 text-blue-900 dark:border-blue-500/40 dark:bg-blue-950/60 dark:text-blue-300 text-[10px] font-semibold">Email</span>
-            <span className="px-1.5 py-0.5 rounded border border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-500/40 dark:bg-rose-950/60 dark:text-rose-300 text-[10px] font-semibold">ELMS</span>
-            <span className="px-1.5 py-0.5 rounded border border-indigo-300 bg-indigo-100 text-indigo-900 dark:border-indigo-500/40 dark:bg-indigo-950/60 dark:text-indigo-300 text-[10px] font-semibold">QUE</span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-600/50 dark:bg-amber-950/50 dark:text-amber-300 text-[10px] font-semibold">
-              <span className="text-[8px] font-bold bg-amber-200 dark:bg-amber-800/60 px-0.5 rounded text-amber-700 dark:text-amber-300">BKP</span>
-              Backup slot
+          {/* Task Codes Legend */}
+          <div className="pt-2.5 border-t border-border">
+            <span className="text-foreground font-bold flex items-center gap-1.5 uppercase tracking-wider text-[11px] mb-2">
+              Task Key Abbreviations
             </span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/50 dark:text-amber-300 text-[10px] font-semibold">
-              <Coffee className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
-              Lunch Break (e.g. 12:00–13:00)
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {GUZO_TASK_CODES.map((t) => (
+                <span
+                  key={t.code}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border bg-secondary text-foreground text-[10px] font-semibold"
+                  title={`${t.name} (${t.desc})`}
+                >
+                  <span className="font-mono font-bold text-primary">{t.code}</span>
+                  <span className="opacity-80">{t.name}</span>
+                </span>
+              ))}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/50 dark:text-amber-300 text-[10px] font-semibold">
+                <Coffee className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
+                Lunch (12:00–13:00 / 13:00–14:00)
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -1113,6 +1167,12 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
         dateStr={selectedDateStr}
         onClose={() => setIsEditModalOpen(false)}
         onUpdated={() => activeScheduleId && fetchScheduleDetail(activeScheduleId)}
+      />
+
+      {/* Guzo Go Shift Key & Legend Modal */}
+      <ShiftKeyLegendModal
+        isOpen={isShiftKeyModalOpen}
+        onClose={() => setIsShiftKeyModalOpen(false)}
       />
     </div>
   );
