@@ -120,48 +120,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Role Switcher Demo */}
-      <div className="p-3 border-t border-border/60 bg-muted/20">
-        <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground mb-1.5 px-0.5">
-          <div className="flex items-center space-x-1">
-            <ShieldCheck className="w-3 h-3 text-primary" />
-            <span>ROLE PREVIEW</span>
-          </div>
-          <span className="text-[10px] text-primary lowercase">{role || 'staff'}</span>
-        </div>
-        <div className="grid grid-cols-3 gap-1">
-          <button
-            onClick={() => login('mock_admin_token', 'admin', 'admin')}
-            className={`h-6 text-[10px] font-medium rounded transition border ${
-              role === 'admin' 
-                ? 'bg-primary text-primary-foreground border-primary shadow-xs font-semibold' 
-                : 'bg-card hover:bg-accent text-foreground border-border'
-            }`}
-          >
-            Admin
-          </button>
-          <button
-            onClick={() => login('mock_manager_token', 'manager', 'manager')}
-            className={`h-6 text-[10px] font-medium rounded transition border ${
-              role === 'manager' 
-                ? 'bg-primary text-primary-foreground border-primary shadow-xs font-semibold' 
-                : 'bg-card hover:bg-accent text-foreground border-border'
-            }`}
-          >
-            Manager
-          </button>
-          <button
-            onClick={() => login('mock_staff_token', 'staff', 'staff')}
-            className={`h-6 text-[10px] font-medium rounded transition border ${
-              role === 'staff' 
-                ? 'bg-primary text-primary-foreground border-primary shadow-xs font-semibold' 
-                : 'bg-card hover:bg-accent text-foreground border-border'
-            }`}
-          >
-            Staff
-          </button>
-        </div>
-      </div>
 
       {/* User Info & Logout */}
       <div className="p-3 border-t border-border flex items-center justify-between bg-card/40">

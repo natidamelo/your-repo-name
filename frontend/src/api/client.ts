@@ -67,6 +67,37 @@ export async function getCurrentUserApi() {
   return apiRequest('/auth/me');
 }
 
+export async function getUsersApi() {
+  return apiRequest('/auth/users');
+}
+
+export async function adminResetPasswordApi(userId: number, newPassword: string) {
+  return apiRequest(`/auth/users/${userId}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ new_password: newPassword })
+  });
+}
+
+export async function adminUpdateUserApi(userId: number, data: { role?: string; is_active?: boolean; email?: string }) {
+  return apiRequest(`/auth/users/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function adminDeleteUserApi(userId: number) {
+  return apiRequest(`/auth/users/${userId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function registerUserApi(data: { username: string; email: string; password: string; role: string }) {
+  return apiRequest('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
 // Employees
 export async function getEmployeesApi() {
   return apiRequest('/employees/');

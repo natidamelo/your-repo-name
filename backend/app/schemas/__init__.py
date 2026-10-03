@@ -24,6 +24,14 @@ class UserCreate(BaseModel):
     role: str = "staff"
     employee_id: Optional[int] = None
 
+class AdminPasswordReset(BaseModel):
+    new_password: str
+
+class UserUpdateAdmin(BaseModel):
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    email: Optional[str] = None
+
 class UserResponse(BaseModel):
     id: int
     username: str

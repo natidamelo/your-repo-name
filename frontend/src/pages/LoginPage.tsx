@@ -6,8 +6,8 @@ import { InstallAppButton } from '../components/layout/InstallAppButton';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
-  const [username, setUsername] = useState<string>('admin');
-  const [password, setPassword] = useState<string>('admin123');
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +17,7 @@ export const LoginPage: React.FC = () => {
     setError(null);
     try {
       const formData = new FormData();
-      formData.append('username', username);
+      formData.append('username', username.trim());
       formData.append('password', password);
 
       const res = await loginApi(formData);
@@ -27,11 +27,6 @@ export const LoginPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const setDemoUser = (user: string, pass: string) => {
-    setUsername(user);
-    setPassword(pass);
   };
 
   return (
@@ -64,6 +59,7 @@ export const LoginPage: React.FC = () => {
               <input
                 type="text"
                 required
+                placeholder="Enter username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full pl-10 pr-3.5 h-10 rounded-lg bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition"
@@ -80,6 +76,7 @@ export const LoginPage: React.FC = () => {
               <input
                 type="password"
                 required
+                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-3.5 h-10 rounded-lg bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition"
@@ -97,37 +94,9 @@ export const LoginPage: React.FC = () => {
           </button>
         </form>
 
-        {/* Demo Roles Quick Pick */}
-        <div className="pt-4 border-t border-border">
-          <p className="text-[11px] text-muted-foreground font-medium text-center mb-2.5">Quick Demo Roles:</p>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setDemoUser('admin', 'admin123')}
-              className="h-8 px-2 rounded-lg bg-secondary hover:bg-accent text-secondary-foreground border border-border text-xs font-medium transition text-center"
-            >
-              Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => setDemoUser('manager', 'manager123')}
-              className="h-8 px-2 rounded-lg bg-secondary hover:bg-accent text-secondary-foreground border border-border text-xs font-medium transition text-center"
-            >
-              Manager
-            </button>
-            <button
-              type="button"
-              onClick={() => setDemoUser('staff', 'staff123')}
-              className="h-8 px-2 rounded-lg bg-secondary hover:bg-accent text-secondary-foreground border border-border text-xs font-medium transition text-center"
-            >
-              Staff
-            </button>
-          </div>
-
-          {/* Mobile Install App Button */}
-          <div className="flex justify-center pt-3 border-t border-border/60">
-            <InstallAppButton />
-          </div>
+        {/* Mobile Install App Button */}
+        <div className="flex justify-center pt-2 border-t border-border/60">
+          <InstallAppButton />
         </div>
       </div>
     </div>
