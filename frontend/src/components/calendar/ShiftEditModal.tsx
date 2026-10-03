@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Clock, Briefcase, Coffee, Check, Plus, AlertCircle, AlertTriangle, ShieldAlert, Key } from 'lucide-react';
 import { ShiftAssignment, ShiftType } from '../../types';
 import { updateShiftApi } from '../../api/client';
@@ -155,10 +156,16 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
     { type: 'SUNDAY_DUTY', label: 'Sunday Duty', cls: 'bg-indigo-100 border-indigo-400 text-indigo-900 dark:bg-primary/20 dark:border-primary/40 dark:text-primary' },
   ];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col"
-           style={{ maxHeight: 'calc(100vh - 32px)' }}>
+  const modalNode = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col my-auto overflow-hidden"
+        style={{ maxHeight: 'min(90vh, calc(100vh - 32px))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
 
         <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0 rounded-t-2xl bg-card">
           <div>
@@ -445,4 +452,6 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 };

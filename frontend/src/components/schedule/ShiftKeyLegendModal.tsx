@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Key, Clock, ShieldCheck, Info } from 'lucide-react';
 
 interface ShiftKeyLegendModalProps {
@@ -15,6 +16,7 @@ export const SHIFT_KEYS = [
   { key: 'A-LHD', standsFor: 'Afternoon Late Half Day', time: '14:00 – 18:00', badgeClass: 'bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-700/60' },
   { key: 'DO', standsFor: 'Day Off', time: 'Full Day Off', badgeClass: 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
   { key: 'A-L', standsFor: 'Annual Leave', time: 'Approved Leave', badgeClass: 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700/60' },
+  { key: 'SUN', standsFor: 'Sunday Duty', time: '08:00 – 17:00', badgeClass: 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-700/60' },
 ];
 
 export const TASK_KEYS = [
@@ -30,15 +32,32 @@ export const TASK_KEYS = [
 ];
 
 export const ShiftKeyLegendModal: React.FC<ShiftKeyLegendModalProps> = ({ isOpen, onClose }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-card border border-border text-foreground rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+  const modalNode = (
+    <div
+      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border text-foreground rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-card/60">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-card/90 backdrop-blur-xs shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
               <Key className="w-4 h-4" />
             </div>
             <div>
@@ -47,15 +66,17 @@ export const ShiftKeyLegendModal: React.FC<ShiftKeyLegendModalProps> = ({ isOpen
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 text-xs">
+        {/* Body - Scrollable */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 text-xs flex-1 overscroll-contain">
           {/* Shift Codes Table */}
           <div>
             <div className="flex items-center space-x-2 mb-3">
@@ -67,7 +88,7 @@ export const ShiftKeyLegendModal: React.FC<ShiftKeyLegendModalProps> = ({ isOpen
             <div className="border border-border rounded-xl overflow-hidden shadow-xs">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-muted/50 border-b border-border text-[11px] font-semibold text-muted-foreground">
+                  <tr className="bg-muted/60 border-b border-border text-[11px] font-semibold text-muted-foreground">
                     <th className="py-2.5 px-3">Key</th>
                     <th className="py-2.5 px-3">Stands For</th>
                     <th className="py-2.5 px-3">Time Interval</th>
@@ -102,15 +123,15 @@ export const ShiftKeyLegendModal: React.FC<ShiftKeyLegendModalProps> = ({ isOpen
               {TASK_KEYS.map((item) => (
                 <div
                   key={item.key}
-                  className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card/50 hover:bg-accent/40 transition"
+                  className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card/60 hover:bg-accent/40 transition gap-2"
                 >
-                  <div className="flex items-center space-x-2.5">
-                    <span className="w-12 h-6 px-1.5 rounded bg-secondary font-mono font-bold text-xs text-foreground flex items-center justify-center border border-border">
+                  <div className="flex items-center space-x-2.5 min-w-0">
+                    <span className="w-12 h-6 px-1.5 rounded bg-secondary font-mono font-bold text-xs text-foreground flex items-center justify-center border border-border shrink-0">
                       {item.key}
                     </span>
-                    <span className="font-semibold text-xs text-foreground">{item.standsFor}</span>
+                    <span className="font-semibold text-xs text-foreground truncate">{item.standsFor}</span>
                   </div>
-                  <span className="text-[11px] text-muted-foreground">{item.desc}</span>
+                  <span className="text-[11px] text-muted-foreground text-right shrink-0">{item.desc}</span>
                 </div>
               ))}
             </div>
@@ -130,10 +151,11 @@ export const ShiftKeyLegendModal: React.FC<ShiftKeyLegendModalProps> = ({ isOpen
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border bg-muted/20 flex justify-end">
+        <div className="px-5 py-3 border-t border-border bg-muted/20 flex justify-end shrink-0">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs transition"
+            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs transition cursor-pointer"
           >
             Close
           </button>
@@ -141,4 +163,6 @@ export const ShiftKeyLegendModal: React.FC<ShiftKeyLegendModalProps> = ({ isOpen
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 };
