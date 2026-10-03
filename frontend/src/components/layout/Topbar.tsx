@@ -23,7 +23,7 @@ interface TopbarProps {
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
-  activeScheduleName = 'Sep 28 – Oct 11, 2026',
+  activeScheduleName = 'Guzo Go Schedule 05 Oct - 11 Oct',
   activeScheduleId,
   dateRange,
   conflictsCount = 0,

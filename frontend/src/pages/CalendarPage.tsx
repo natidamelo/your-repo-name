@@ -90,7 +90,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       const list = await getSchedulesApi();
       setSchedulesList(list);
       if (list.length > 0 && !activeScheduleId) {
-        setActiveScheduleId(list[0].id);
+        const guzoSched = list.find(s => s.name?.includes('Guzo Go') || (s.start_date === '2026-10-05' && s.end_date === '2026-10-11'));
+        setActiveScheduleId(guzoSched ? guzoSched.id : list[0].id);
       }
     } catch (err) {
       console.error('Failed to fetch schedule list:', err);
