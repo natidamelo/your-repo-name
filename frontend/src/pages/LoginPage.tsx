@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, User, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { loginApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { InstallAppButton } from '../components/layout/InstallAppButton';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -38,9 +39,11 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl p-8 space-y-6">
         {/* Brand */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-md font-bold text-lg mx-auto">
-            CC
-          </div>
+          <img
+            src="/pwa-192x192.png"
+            alt="Call Center Logo"
+            className="w-16 h-16 rounded-2xl shadow-xl mx-auto ring-2 ring-sky-500/30 active:scale-95 transition"
+          />
           <h1 className="text-xl font-bold text-foreground tracking-tight">Call Center Scheduling</h1>
           <p className="text-xs text-muted-foreground">Sign in to manage employee shifts, rotations & coverage</p>
         </div>
@@ -119,6 +122,11 @@ export const LoginPage: React.FC = () => {
             >
               Staff
             </button>
+          </div>
+
+          {/* Mobile Install App Button */}
+          <div className="flex justify-center pt-3 border-t border-border/60">
+            <InstallAppButton />
           </div>
         </div>
       </div>

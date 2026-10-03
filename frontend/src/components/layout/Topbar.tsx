@@ -3,6 +3,7 @@ import { Calendar, Download, Printer, AlertTriangle, CheckCircle2, RotateCw } fr
 import { useAuth } from '../../context/AuthContext';
 import { exportScheduleExcel } from '../../api/client';
 import { ThemeToggle } from './ThemeToggle';
+import { InstallAppButton } from './InstallAppButton';
 
 export interface DateRangeInfo {
   startDate?: string;
@@ -74,6 +75,9 @@ export const Topbar: React.FC<TopbarProps> = ({
             <span>Verified</span>
           </div>
         )}
+
+        {/* Install Mobile App Button */}
+        <InstallAppButton />
 
         {/* Theme Toggle Button */}
         <ThemeToggle showLabel={true} />
