@@ -1,5 +1,24 @@
-const rawApiUrl = (import.meta as any).env?.VITE_API_URL || 'http://127.0.0.1:8001/api';
-const API_BASE_URL = rawApiUrl.replace(/\/+$/, '');
+function getInitialApiUrl(): string {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    return envUrl;
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // When hosted on Vercel or any HTTPS production domain, route to the live Render backend
+    if (hostname.includes('vercel.app') || window.location.protocol === 'https:') {
+      return 'https://call-center-backend-4rpw.onrender.com/api';
+    }
+    // When accessing via phone on local network (e.g. 10.20.160.157:5173 or 192.168.x.x)
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '0.0.0.0') {
+      return `http://${hostname}:8001/api`;
+    }
+  }
+  return 'http://127.0.0.1:8001/api';
+}
+
+const rawApiUrl = getInitialApiUrl();
+export const API_BASE_URL = rawApiUrl.replace(/\/+$/, '');
 
 export function getAuthToken(): string | null {
   return localStorage.getItem('callcenter_token');
@@ -52,13 +71,25 @@ export async function apiRequest<T = any>(
 
 // Authentication
 export async function loginApi(formData: FormData) {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    body: formData
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      body: formData
+    });
+  } catch (netErr: any) {
+    throw new Error('Could not connect to backend server. Please check your internet or wait for server to wake up.');
+  }
+
   if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.detail || 'Login failed');
+    let errorDetail = 'Login failed';
+    try {
+      const err = await response.json();
+      errorDetail = err.detail || JSON.stringify(err);
+    } catch {
+      errorDetail = `Server response error (${response.status}: ${response.statusText})`;
+    }
+    throw new Error(errorDetail);
   }
   return response.json();
 }
