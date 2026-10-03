@@ -8,6 +8,8 @@ import {
   RotateCw,
   Search,
   Users,
+  UserCheck,
+  UserX,
   X,
   Filter,
   Sun,
@@ -270,47 +272,94 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
   const allStaffNames = Object.keys(staffRowsMap).sort();
 
-  // ─── Filter staff by search query and shift filter ────────
-  const filteredStaffNames = useMemo(() => {
-    let names = allStaffNames;
+  // ─── Filter staff by search query ─────────────────────────
+  const searchedStaffNames = useMemo(() => {
+    if (!searchQuery.trim()) return allStaffNames;
+    const q = searchQuery.toLowerCase().trim();
+    return allStaffNames.filter(n => n.toLowerCase().includes(q));
+  }, [allStaffNames, searchQuery]);
 
-    // Search by name
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      names = names.filter(n => n.toLowerCase().includes(q));
+  // ─── Daily summary stats (computed from searched staff) ───
+  const dailyStats = useMemo(() => {
+    const stats: { [date: string]: { work: number; off: number; sunday: number; total: number } } = {};
+    displayedDays.forEach(day => {
+      let work = 0, off = 0, sunday = 0;
+      searchedStaffNames.forEach(name => {
+        const s = staffRowsMap[name]?.[day.date];
+        if (!s || s.shift_type === 'OFF') {
+          off++;
+        } else if (s.shift_type === 'SUNDAY_DUTY') {
+          sunday++;
+        } else {
+          work++;
+        }
+      });
+      stats[day.date] = { work, off, sunday, total: work + sunday };
+    });
+    return stats;
+  }, [displayedDays, searchedStaffNames, staffRowsMap]);
+
+  // Active selected day for mobile view
+  const currentMobileDay = displayedDays[selectedMobileDayIdx] || displayedDays[0];
+
+  // Live filter counts (for mobile active day or whole schedule)
+  const filterCounts = useMemo(() => {
+    if (currentMobileDay && dailyStats[currentMobileDay.date]) {
+      const s = dailyStats[currentMobileDay.date];
+      return {
+        all: searchedStaffNames.length,
+        WORK: s.work,
+        OFF: s.off,
+        SUNDAY_DUTY: s.sunday
+      };
     }
+    return {
+      all: searchedStaffNames.length,
+      WORK: displayedDays.reduce((acc, d) => acc + (dailyStats[d.date]?.work || 0), 0),
+      OFF: displayedDays.reduce((acc, d) => acc + (dailyStats[d.date]?.off || 0), 0),
+      SUNDAY_DUTY: displayedDays.reduce((acc, d) => acc + (dailyStats[d.date]?.sunday || 0), 0)
+    };
+  }, [currentMobileDay, dailyStats, searchedStaffNames.length, displayedDays]);
 
-    // Filter by shift type: show only staff who have at least one matching shift in displayed days
+  // ─── Mobile: Staff filtered strictly for the active selected day ─
+  const mobileFilteredStaffNames = useMemo(() => {
+    if (!currentMobileDay) return searchedStaffNames;
+    const targetDate = currentMobileDay.date;
+
+    return searchedStaffNames.filter(name => {
+      const shift = staffRowsMap[name]?.[targetDate];
+      if (shiftFilter === 'all') return true;
+      if (shiftFilter === 'WORK') {
+        return shift ? ['WORK', 'AM_HALF', 'PM_HALF'].includes(shift.shift_type) : false;
+      }
+      if (shiftFilter === 'OFF') {
+        return !shift || shift.shift_type === 'OFF';
+      }
+      if (shiftFilter === 'SUNDAY_DUTY') {
+        return shift ? shift.shift_type === 'SUNDAY_DUTY' : false;
+      }
+      return true;
+    });
+  }, [searchedStaffNames, currentMobileDay, staffRowsMap, shiftFilter]);
+
+  // ─── Desktop: Filtered staff names across displayed days ──
+  const filteredStaffNames = useMemo(() => {
+    let names = searchedStaffNames;
+
     if (shiftFilter !== 'all') {
       names = names.filter(name => {
         return displayedDays.some(day => {
           const shift = staffRowsMap[name]?.[day.date];
-          if (!shift) return false;
-          if (shiftFilter === 'WORK') return ['WORK', 'AM_HALF', 'PM_HALF'].includes(shift.shift_type);
-          return shift.shift_type === shiftFilter;
+          if (shiftFilter === 'WORK') return shift && ['WORK', 'AM_HALF', 'PM_HALF'].includes(shift.shift_type);
+          if (shiftFilter === 'OFF') return !shift || shift.shift_type === 'OFF';
+          if (shiftFilter === 'SUNDAY_DUTY') return shift && shift.shift_type === 'SUNDAY_DUTY';
+          return true;
         });
       });
     }
 
     return names;
-  }, [allStaffNames, searchQuery, shiftFilter, displayedDays, staffRowsMap]);
-
-  // ─── Daily summary stats (count WORK / OFF per column) ───
-  const dailyStats = useMemo(() => {
-    const stats: { [date: string]: { work: number; off: number; sunday: number; total: number } } = {};
-    displayedDays.forEach(day => {
-      let work = 0, off = 0, sunday = 0;
-      filteredStaffNames.forEach(name => {
-        const s = staffRowsMap[name]?.[day.date];
-        if (!s) return;
-        if (s.shift_type === 'OFF') off++;
-        else if (s.shift_type === 'SUNDAY_DUTY') sunday++;
-        else work++;
-      });
-      stats[day.date] = { work, off, sunday, total: work + sunday };
-    });
-    return stats;
-  }, [displayedDays, filteredStaffNames, staffRowsMap]);
+  }, [searchedStaffNames, shiftFilter, displayedDays, staffRowsMap]);
 
   const getAssignedTasks = (shift?: ShiftAssignment): string[] => {
     if (!shift) return [];
@@ -848,27 +897,67 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
         </div>
 
         {/* Shift type filter chips */}
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <div className="flex flex-wrap items-center gap-1.5">
           {([
-            { key: 'all', label: 'All', icon: null },
-            { key: 'WORK', label: 'Working', icon: null },
-            { key: 'OFF', label: 'Off Duty', icon: null },
-            { key: 'SUNDAY_DUTY', label: 'Sunday', icon: <Sun className="w-3 h-3" /> },
-          ] as const).map(f => (
-            <button
-              key={f.key}
-              onClick={() => setShiftFilter(f.key as any)}
-              className={`h-7 px-2.5 rounded-md text-[11px] font-semibold transition flex items-center gap-1 ${
-                shiftFilter === f.key
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-secondary text-muted-foreground hover:text-foreground border border-border'
-              }`}
-            >
-              {f.icon}
-              {f.label}
-            </button>
-          ))}
+            {
+              key: 'all',
+              label: 'All',
+              count: filterCounts.all,
+              icon: <Users className="w-3.5 h-3.5" />,
+              activeClass: 'bg-primary text-primary-foreground border-primary shadow-xs',
+              badgeActive: 'bg-white/25 text-white',
+              badgeInactive: 'bg-muted text-muted-foreground'
+            },
+            {
+              key: 'WORK',
+              label: 'Working',
+              count: filterCounts.WORK,
+              icon: <UserCheck className="w-3.5 h-3.5" />,
+              activeClass: 'bg-emerald-600 text-white border-emerald-600 shadow-xs',
+              badgeActive: 'bg-emerald-700/60 text-white',
+              badgeInactive: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+            },
+            {
+              key: 'OFF',
+              label: 'Off Duty',
+              count: filterCounts.OFF,
+              icon: <UserX className="w-3.5 h-3.5" />,
+              activeClass: 'bg-slate-700 text-white dark:bg-slate-800 border-slate-700 shadow-xs',
+              badgeActive: 'bg-black/30 text-white',
+              badgeInactive: 'bg-slate-200 text-slate-700 dark:bg-muted dark:text-muted-foreground'
+            },
+            {
+              key: 'SUNDAY_DUTY',
+              label: 'Sunday',
+              count: filterCounts.SUNDAY_DUTY,
+              icon: <Sun className="w-3.5 h-3.5" />,
+              activeClass: 'bg-indigo-600 text-white border-indigo-600 shadow-xs',
+              badgeActive: 'bg-indigo-800/60 text-white',
+              badgeInactive: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
+            },
+          ] as const).map(f => {
+            const isActive = shiftFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setShiftFilter(f.key as any)}
+                className={`h-8 px-2.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer border ${
+                  isActive
+                    ? f.activeClass
+                    : 'bg-card text-muted-foreground hover:text-foreground hover:bg-accent border-border shadow-2xs'
+                }`}
+              >
+                {f.icon}
+                <span>{f.label}</span>
+                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full transition ${
+                  isActive ? f.badgeActive : f.badgeInactive
+                }`}>
+                  {f.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Toggle lunch time display */}
@@ -1079,116 +1168,141 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
             {/* Staff cards for selected day */}
             <div className="flex flex-col gap-2.5">
-              {filteredStaffNames.map(name => {
-                const selDay = displayedDays[selectedMobileDayIdx];
-                if (!selDay) return null;
-                const shift = staffRowsMap[name]?.[selDay.date];
-                const avatarColor = getAvatarColor(name);
-                const guzoInfo = shift ? getGuzoShiftKey(shift.start_time, shift.end_time, shift.shift_type, shift.notes) : null;
-                const isOff = !shift || shift.shift_type === 'OFF';
-                const isLeave = guzoInfo?.key === 'A-L';
-                const isSunDuty = shift?.shift_type === 'SUNDAY_DUTY';
-                const taskList = shift ? getAssignedTasks(shift) : [];
-
-                let cardBg = 'bg-card border-border';
-                if (isLeave) cardBg = 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800/40';
-                else if (isOff) cardBg = 'bg-muted/30 border-border';
-                else if (isSunDuty) cardBg = 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-700/40';
-                else cardBg = 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/30';
-
-                return (
-                  <div
-                    key={name}
-                    onClick={() => shift && role !== 'staff' && handleShiftClick(shift, selDay.date)}
-                    className={`rounded-xl border ${cardBg} p-3 shadow-xs ${role !== 'staff' && shift ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
+              {mobileFilteredStaffNames.length === 0 ? (
+                <div className="p-8 rounded-xl border border-dashed border-border bg-card text-center space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground">
+                    <Filter className="w-5 h-5 opacity-60" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">
+                      No staff matching "{shiftFilter === 'WORK' ? 'Working' : shiftFilter === 'OFF' ? 'Off Duty' : shiftFilter === 'SUNDAY_DUTY' ? 'Sunday' : 'filter'}"
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {shiftFilter === 'SUNDAY_DUTY'
+                        ? 'Sunday duty shifts only occur on Sundays.'
+                        : 'No staff match this status on the selected date.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShiftFilter('all')}
+                    className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition shadow-xs inline-flex items-center gap-1.5 mx-auto"
                   >
-                    <div className="flex items-center gap-3">
-                      {/* Avatar */}
-                      <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}>
-                        {getInitials(name)}
-                      </div>
+                    <span>Show All Staff ({searchedStaffNames.length})</span>
+                  </button>
+                </div>
+              ) : (
+                mobileFilteredStaffNames.map(name => {
+                  const selDay = displayedDays[selectedMobileDayIdx];
+                  if (!selDay) return null;
+                  const shift = staffRowsMap[name]?.[selDay.date];
+                  const avatarColor = getAvatarColor(name);
+                  const guzoInfo = shift ? getGuzoShiftKey(shift.start_time, shift.end_time, shift.shift_type, shift.notes) : null;
+                  const isOff = !shift || shift.shift_type === 'OFF';
+                  const isLeave = guzoInfo?.key === 'A-L';
+                  const isSunDuty = shift?.shift_type === 'SUNDAY_DUTY';
+                  const taskList = shift ? getAssignedTasks(shift) : [];
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-sm text-foreground truncate">{name}</span>
-                          {/* Shift key badge */}
-                          {guzoInfo && (
-                            <span className={`shrink-0 font-mono font-black text-sm px-2.5 py-0.5 rounded-lg border ${
-                              isLeave ? 'bg-rose-100 border-rose-300 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
-                              : isOff ? 'bg-slate-100 border-slate-300 text-slate-600 dark:bg-muted/40 dark:text-muted-foreground'
-                              : isSunDuty ? 'bg-indigo-100 border-indigo-300 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
-                              : 'bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                            }`}>
-                              {guzoInfo.key}
-                            </span>
-                          )}
+                  let cardBg = 'bg-card border-border';
+                  if (isLeave) cardBg = 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800/40';
+                  else if (isOff) cardBg = 'bg-muted/30 border-border';
+                  else if (isSunDuty) cardBg = 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-700/40';
+                  else cardBg = 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/30';
+
+                  return (
+                    <div
+                      key={name}
+                      onClick={() => shift && role !== 'staff' && handleShiftClick(shift, selDay.date)}
+                      className={`rounded-xl border ${cardBg} p-3 shadow-xs ${role !== 'staff' && shift ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Avatar */}
+                        <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}>
+                          {getInitials(name)}
                         </div>
 
-                        {/* Shift times */}
-                        {shift && !isOff && shift.start_time && (
-                          <p className="text-xs font-semibold text-muted-foreground mt-0.5">
-                            {shift.start_time} – {shift.end_time}
-                            {shift.lunch_start && (
-                              <span className="ml-2 text-amber-600 dark:text-amber-400">
-                                ☕ {shift.lunch_start}–{shift.lunch_end}
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-sm text-foreground truncate">{name}</span>
+                            {/* Shift key badge */}
+                            {guzoInfo && (
+                              <span className={`shrink-0 font-mono font-black text-sm px-2.5 py-0.5 rounded-lg border ${
+                                isLeave ? 'bg-rose-100 border-rose-300 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+                                : isOff ? 'bg-slate-100 border-slate-300 text-slate-600 dark:bg-muted/40 dark:text-muted-foreground'
+                                : isSunDuty ? 'bg-indigo-100 border-indigo-300 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
+                                : 'bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              }`}>
+                                {guzoInfo.key}
                               </span>
                             )}
-                          </p>
-                        )}
-                        {isOff && !isLeave && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Day off</p>
-                        )}
-                        {isLeave && (
-                          <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mt-0.5">Annual Leave</p>
-                        )}
+                          </div>
 
-                        {/* Task rows — with times */}
-                        {taskList.length > 0 && (
-                          <div className="flex flex-col gap-1 mt-2">
-                            {shift?.tasks && shift.tasks.length > 0 ? (
-                              shift.tasks.map((taskRecord, idx) => {
-                                const timeStr = taskRecord.start_time && taskRecord.end_time
-                                  ? `${taskRecord.start_time} – ${taskRecord.end_time}` : '';
-                                const badgeStyle = taskRecord.is_backup
-                                  ? 'bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-600/50 dark:text-amber-300'
-                                  : getTaskBadgeStyle(taskRecord.task_name);
-                                return (
-                                  <div
-                                    key={`${taskRecord.task_name}-${idx}`}
-                                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${badgeStyle}`}
-                                  >
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-bold">{taskRecord.task_name}</span>
-                                      {taskRecord.is_backup && (
-                                        <span className="text-[9px] font-black bg-amber-200 dark:bg-amber-800/60 text-amber-700 dark:text-amber-300 px-1 py-0.5 rounded">BKP</span>
+                          {/* Shift times */}
+                          {shift && !isOff && shift.start_time && (
+                            <p className="text-xs font-semibold text-muted-foreground mt-0.5">
+                              {shift.start_time} – {shift.end_time}
+                              {shift.lunch_start && (
+                                <span className="ml-2 text-amber-600 dark:text-amber-400">
+                                  ☕ {shift.lunch_start}–{shift.lunch_end}
+                                </span>
+                              )}
+                            </p>
+                          )}
+                          {isOff && !isLeave && (
+                            <p className="text-xs text-muted-foreground mt-0.5">Day off</p>
+                          )}
+                          {isLeave && (
+                            <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mt-0.5">Annual Leave</p>
+                          )}
+
+                          {/* Task rows — with times */}
+                          {taskList.length > 0 && (
+                            <div className="flex flex-col gap-1 mt-2">
+                              {shift?.tasks && shift.tasks.length > 0 ? (
+                                shift.tasks.map((taskRecord, idx) => {
+                                  const timeStr = taskRecord.start_time && taskRecord.end_time
+                                    ? `${taskRecord.start_time} – ${taskRecord.end_time}` : '';
+                                  const badgeStyle = taskRecord.is_backup
+                                    ? 'bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-600/50 dark:text-amber-300'
+                                    : getTaskBadgeStyle(taskRecord.task_name);
+                                  return (
+                                    <div
+                                      key={`${taskRecord.task_name}-${idx}`}
+                                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${badgeStyle}`}
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-bold">{taskRecord.task_name}</span>
+                                        {taskRecord.is_backup && (
+                                          <span className="text-[9px] font-black bg-amber-200 dark:bg-amber-800/60 text-amber-700 dark:text-amber-300 px-1 py-0.5 rounded">BKP</span>
+                                        )}
+                                      </div>
+                                      {timeStr && (
+                                        <span className="font-mono text-[11px] font-bold opacity-90 shrink-0 ml-2">
+                                          {timeStr}
+                                        </span>
                                       )}
                                     </div>
-                                    {timeStr && (
-                                      <span className="font-mono text-[11px] font-bold opacity-90 shrink-0 ml-2">
-                                        {timeStr}
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              taskList.map(task => (
-                                <span
-                                  key={task}
-                                  className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${getTaskBadgeStyle(task)}`}
-                                >
-                                  {task}
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        )}
+                                  );
+                                })
+                              ) : (
+                                taskList.map(task => (
+                                  <span
+                                    key={task}
+                                    className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${getTaskBadgeStyle(task)}`}
+                                  >
+                                    {task}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -1291,6 +1405,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           const dObj = new Date(day.date + 'T00:00:00');
                           const isSun = dObj.getDay() === 0;
                           const isToday = day.date === TODAY_STR;
+                          const matchesFilter = shiftFilter === 'all' ? true :
+                            shiftFilter === 'WORK' ? (shift && ['WORK', 'AM_HALF', 'PM_HALF'].includes(shift.shift_type)) :
+                            shiftFilter === 'OFF' ? (!shift || shift.shift_type === 'OFF') :
+                            shiftFilter === 'SUNDAY_DUTY' ? (shift && shift.shift_type === 'SUNDAY_DUTY') : true;
+
                           return (
                             <td
                               key={day.date}
@@ -1301,6 +1420,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                                   : isSun
                                   ? 'bg-indigo-50/50 dark:bg-indigo-950/10'
                                   : ''
+                              } ${
+                                !matchesFilter ? 'opacity-25 grayscale-[20%] hover:opacity-100 hover:grayscale-0' : ''
                               } ${
                                 role !== 'staff'
                                   ? 'cursor-pointer hover:brightness-110 active:scale-[0.98]'
