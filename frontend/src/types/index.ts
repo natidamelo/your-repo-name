@@ -215,7 +215,9 @@ export interface ValidationChecklist {
   sunday_staffing_valid: boolean;
   saturday_rotation_valid: boolean;
   days_off_valid: boolean;
-  lunch_coverage_valid: boolean;
+  early_morning_valid?: boolean;
+  gds_capability_valid?: boolean;
+  lunch_coverage_valid?: boolean;
   call_center_coverage_valid: boolean;
 }
 

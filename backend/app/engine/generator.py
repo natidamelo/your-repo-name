@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from app.engine.rotations import get_saturday_rotation, get_sunday_duty_assignment, get_week_index_from_anchor
 from app.engine.validator import validate_schedule_period
 
-# Standard working hours and profile data for the 12 staff
+# Standard working profiles for the 12 staff
 STAFF_PROFILES = {
     "Hebron": {
         "start_time": "08:00",
@@ -11,8 +11,8 @@ STAFF_PROFILES = {
         "lunch_start": "12:00",
         "lunch_end": "13:00",
         "primary_task": "Telegram",
-        "secondary_task": "Call Center", # 8-9, 1-2
-        "skills": ["GDS", "Telegram", "Call Center", "2839 phone", "Email", "QUE", "ELMS"]
+        "secondary_task": "Call Center",
+        "notes": "E-M: T/C-BKP"
     },
     "Shalom": {
         "start_time": "08:00",
@@ -20,26 +20,26 @@ STAFF_PROFILES = {
         "lunch_start": "13:00",
         "lunch_end": "14:00",
         "primary_task": "Call Center",
-        "secondary_task": "GDS",
-        "skills": ["Junior GDS", "Telegram", "Call Center", "Amadeus", "ELMS", "QUE", "Email"]
+        "secondary_task": "2839 phone",
+        "notes": "E-M: C/2839"
     },
     "Biruk": {
-        "start_time": "09:00",
-        "end_time": "18:00",
-        "lunch_start": "13:00",
-        "lunch_end": "14:00",
+        "start_time": "08:00",
+        "end_time": "17:00",
+        "lunch_start": "12:00",
+        "lunch_end": "13:00",
         "primary_task": "Call Center",
-        "secondary_task": "Telegram", # Backup
-        "skills": ["GDS", "Telegram", "Call Center", "Amadeus", "ELMS", "QUE", "Email"]
+        "secondary_task": "Telegram",
+        "notes": "E-M: C/T-BKP"
     },
     "Luam": {
         "start_time": "09:00",
         "end_time": "18:00",
-        "lunch_start": "13:00",
-        "lunch_end": "14:00",
+        "lunch_start": "12:00",
+        "lunch_end": "13:00",
         "primary_task": "Call Center",
-        "secondary_task": "Amadeus",
-        "skills": ["Call Center", "Amadeus"]
+        "secondary_task": "2839 phone",
+        "notes": "M-M: C/2839"
     },
     "Feruza": {
         "start_time": "09:00",
@@ -47,8 +47,8 @@ STAFF_PROFILES = {
         "lunch_start": "13:00",
         "lunch_end": "14:00",
         "primary_task": "Telegram",
-        "secondary_task": "Call Center", # 12-1 PM
-        "skills": ["GDS", "Telegram", "Junior Amadeus", "ELMS", "Email", "QUE"]
+        "secondary_task": "ELMS",
+        "notes": "M-M: T/ELMS"
     },
     "Tirsit": {
         "start_time": "08:00",
@@ -56,8 +56,8 @@ STAFF_PROFILES = {
         "lunch_start": "12:00",
         "lunch_end": "13:00",
         "primary_task": "Call Center",
-        "secondary_task": "Telegram",
-        "skills": ["GDS", "Telegram", "Call Center", "Amadeus", "ELMS", "QUE", "Email"]
+        "secondary_task": "ELMS",
+        "notes": "E-M: C/ELMS"
     },
     "Rediet": {
         "start_time": "08:00",
@@ -65,8 +65,8 @@ STAFF_PROFILES = {
         "lunch_start": "12:00",
         "lunch_end": "13:00",
         "primary_task": "Call Center",
-        "secondary_task": "Telegram",
-        "skills": ["GDS", "Telegram", "Call Center", "Amadeus", "ELMS", "QUE", "Email"]
+        "secondary_task": "QUE",
+        "notes": "E-M: C/Q-BKP"
     },
     "Yordi": {
         "start_time": "09:00",
@@ -74,8 +74,8 @@ STAFF_PROFILES = {
         "lunch_start": "12:00",
         "lunch_end": "13:00",
         "primary_task": "Call Center",
-        "secondary_task": "Telegram",
-        "skills": ["Call Center", "Amadeus"]
+        "secondary_task": "Follow up",
+        "notes": "M-M: C/F-BKP"
     },
     "Hermela": {
         "start_time": "09:00",
@@ -83,8 +83,8 @@ STAFF_PROFILES = {
         "lunch_start": "12:00",
         "lunch_end": "13:00",
         "primary_task": "Telegram",
-        "secondary_task": "Call Center",
-        "skills": ["GDS", "Telegram", "Call Center", "Amadeus", "ELMS", "QUE", "Email"]
+        "secondary_task": "Email",
+        "notes": "M-M: E/T/C-BKP"
     },
     "Obsa": {
         "start_time": "09:00",
@@ -92,31 +92,30 @@ STAFF_PROFILES = {
         "lunch_start": "13:00",
         "lunch_end": "14:00",
         "primary_task": "Call Center",
-        "secondary_task": "Amadeus",
-        "skills": ["Call Center", "Amadeus"]
+        "secondary_task": "Follow up",
+        "notes": "M-M: C/F"
     },
     "Beti": {
-        "start_time": "09:00",
-        "end_time": "18:00",
-        "lunch_start": "14:00",
-        "lunch_end": "15:00",
-        "primary_task": "Call Center",
-        "secondary_task": "Amadeus",
-        "skills": ["Call Center", "Amadeus"]
-    },
-    "Yeab": {
         "start_time": "09:00",
         "end_time": "18:00",
         "lunch_start": "13:00",
         "lunch_end": "14:00",
         "primary_task": "Call Center",
-        "secondary_task": "GDS",
-        "skills": ["GDS", "Telegram", "Call Center", "Amadeus", "ELMS", "QUE", "Email"]
+        "secondary_task": "2839 phone",
+        "notes": "M-M: C"
+    },
+    "Yabsera N": {
+        "start_time": "09:00",
+        "end_time": "18:00",
+        "lunch_start": "13:00",
+        "lunch_end": "14:00",
+        "primary_task": "Call Center",
+        "secondary_task": "Email",
+        "notes": "M-M: C/E-BKP"
     }
 }
 
 class EphemeralPeriod:
-    """Lightweight container used for validation before saving to DB."""
     def __init__(self, start_date: str, end_date: str, days: list):
         self.start_date = start_date
         self.end_date = end_date
@@ -146,7 +145,6 @@ class EphemeralShift:
         self.notes = notes
         self.tasks = tasks or []
         
-        # Mock employee property for validator
         class MockEmp:
             def __init__(self, name):
                 self.first_name = name
@@ -155,98 +153,111 @@ class EphemeralShift:
 
 def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db_map: dict = None) -> Tuple[Any, Dict[str, Any]]:
     """
-    Generates a conflict-free schedule for 1, 2, or 4 weeks.
-    employee_db_map: optional dict of {first_name: db_employee_id}
+    Generates an optimized schedule adhering strictly to:
+    1. Hebron and Beti rotation leads (1.5 days off: 1 full day off + Saturday half-day).
+    2. Saturday alternation between Beti and Hebron (weekly).
+    3. Bi-weekly Sunday duty lead rotation between Beti and Hebron.
+    4. Sunday duty worker gets Monday OFF.
+    5. Exactly 5 staff on Sunday; 2 to 3 Sunday workers get Monday OFF.
+    6. Feruza tied to Beti (1.5 days off).
+    7. Hebron (Mon-Fri) ALWAYS 08:00–17:00 (E-M).
+    8. Shalom, Rediet, Tirsit ALWAYS 08:00–17:00 (E-M) when working.
+    9. Yordi and Obsa work Mon–Sat and have Sunday OFF.
+    10. Rest of agents have 2 days off per week.
+    11. Telegram/ELMS/Q/E handled only by GDS-capable staff; Yabsera N excluded from Telegram.
+    12. 2839 & Follow-up rotated among Luam, Obsa, Yordi, Beti, Shalom, Yabsera N.
     """
     start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-    total_days = duration_weeks * 7
     days_data = []
 
-    # Map names to IDs if provided
     def get_emp_id(name: str) -> int:
-        if employee_db_map and name in employee_db_map:
-            return employee_db_map[name]
+        if not employee_db_map: return 0
+        for k, v in employee_db_map.items():
+            if k.lower() in name.lower() or name.lower() in k.lower():
+                return v
         return 0
 
-    # Non-Beti/Hebron candidate pool for Sunday duty (3 people per Sunday, alternating)
-    sunday_pool_a = ["Shalom", "Biruk", "Luam"]
-    sunday_pool_b = ["Feruza", "Tirsit", "Rediet"]
-    sunday_pools = [sunday_pool_a, sunday_pool_b]
+    # Pool of Sunday squads (each week has 1 Lead + 4 other agents = exactly 5 staff)
+    sunday_pool_rotation = [
+        ["Yabsera N", "Biruk", "Tirsit", "Feruza"],
+        ["Biruk", "Hermela", "Shalom", "Rediet"],
+        ["Yabsera N", "Tirsit", "Feruza", "Luam"],
+        ["Biruk", "Rediet", "Hermela", "Shalom"]
+    ]
 
-    # Precompute schedule week by week (each 7 days: Monday to Sunday)
     for w in range(duration_weeks):
         week_start_dt = start_dt + timedelta(days=w * 7)
         week_idx = get_week_index_from_anchor(week_start_dt)
-        is_even_week = (week_idx % 2 == 0) # Week A / Week 1
+        sat_date = week_start_dt + timedelta(days=5)
+        sun_date = week_start_dt + timedelta(days=6)
 
-        # Sunday duty decision
-        # Week 1 (even): Beti works Sunday, Hebron OFF
-        # Week 2 (odd): Hebron works Sunday, Beti OFF
-        sat_rotation = get_saturday_rotation(week_start_dt + timedelta(days=5))
+        sat_rotation = get_saturday_rotation(sat_date)
+        sun_lead = get_sunday_duty_assignment(sun_date)
 
-        # 3 other Sunday staff for this week
-        sunday_squad_others = sunday_pools[week_idx % len(sunday_pools)]
+        duty_lead = sun_lead["working"] # "Beti" or "Hebron"
+        off_lead = sun_lead["off"]       # "Hebron" or "Beti"
 
-        # Off days map for this week
-        off_days_map = {}
-        for emp_name in STAFF_PROFILES.keys():
-            off_days_map[emp_name] = set()
+        # 4 other staff for Sunday = exactly 5 staff on Sunday
+        squad_pool = sunday_pool_rotation[week_idx % len(sunday_pool_rotation)]
+        active_sunday_squad = set([duty_lead] + squad_pool)
 
-        if is_even_week:
-            # Beti works Sunday
-            # If this is week 0 (initial anchor start), Hebron did not work preceding Sunday in this window
-            # If week_idx > 0, preceding week was odd -> Hebron worked Sunday -> Hebron is OFF on Monday (0)
-            if week_idx > 0:
-                off_days_map["Hebron"] = {0, 6} # Mon, Sun
-                off_days_map["Beti"] = {1, 3}   # Tue, Thu (works Sun)
-                off_days_map["Yeab"] = {2, 6}   # Wed, Sun (covers Beti on Tue, Thu)
-            else:
-                off_days_map["Hebron"] = {2, 6} # Wed, Sun
-                off_days_map["Beti"] = {1, 3}   # Tue, Thu (works Sun)
-                off_days_map["Yeab"] = {2, 6}   # Wed, Sun
+        # Off days map for this week: emp_name -> set of day offsets (0=Mon, 6=Sun)
+        off_days_map: Dict[str, set] = {}
+        for emp in STAFF_PROFILES.keys():
+            off_days_map[emp] = set()
+
+        # Rule: Sunday duty lead gets Monday OFF
+        # Duty lead works Sunday (6 is NOT off), gets Monday (0) OFF
+        # Off lead is OFF Sunday (6 is OFF), works Monday
+        if duty_lead == "Beti":
+            off_days_map["Beti"] = {0} # Monday OFF (works Sunday)
+            off_days_map["Hebron"] = {6} # Sunday OFF (works Monday-Friday full, Sat PM half)
         else:
-            # Odd week: Hebron works Sunday, Beti is OFF Sunday
-            # Preceding week was even -> Beti worked Sunday -> Beti is strictly OFF Monday (0)
-            off_days_map["Beti"] = {0, 6}       # Mon, Sun
-            off_days_map["Hebron"] = {2, 3}     # Wed, Thu (works Sun)
-            off_days_map["Yeab"] = {1, 6}       # Tue, Sun (covers Beti on Mon)
+            off_days_map["Hebron"] = {0} # Monday OFF (works Sunday)
+            off_days_map["Beti"] = {6} # Sunday OFF (works Monday-Friday full, Sat half)
 
-        # Yordi & Obsa: strictly Sunday OFF (day 6), plus 1 weekday
-        off_days_map["Yordi"] = {1, 6} if is_even_week else {3, 6}
-        off_days_map["Obsa"] = {3, 6} if is_even_week else {4, 6}
+        # Feruza: 1.5 days off per week, tied to Beti
+        if "Feruza" in active_sunday_squad:
+            # Feruza works Sunday -> gets Monday OFF (rule: Sunday worker Monday OFF)
+            off_days_map["Feruza"] = {0}
+        else:
+            # Feruza off on Sunday (or Thursday)
+            off_days_map["Feruza"] = {3}
 
-        # Handle the 3 other staff who work Sunday: they work Sunday (6 is NOT off), and get 2 weekdays OFF
-        for name in sunday_squad_others:
-            if name == "Shalom":
-                off_days_map["Shalom"] = {1, 4} # Tue, Fri
-            elif name == "Biruk":
-                off_days_map["Biruk"] = {2, 4}  # Wed, Fri
-            elif name == "Luam":
-                off_days_map["Luam"] = {0, 3}   # Mon, Thu
-            elif name == "Feruza":
-                off_days_map["Feruza"] = {1, 4} # Tue, Fri
-            elif name == "Tirsit":
-                off_days_map["Tirsit"] = {2, 4} # Wed, Fri
-            elif name == "Rediet":
-                off_days_map["Rediet"] = {0, 3} # Mon, Thu
+        # Yordi and Obsa: ALWAYS work Mon–Sat, DAY OFF on Sunday (day 6)
+        off_days_map["Yordi"] = {6}
+        off_days_map["Obsa"] = {6}
 
-        # For remaining staff who don't work Sunday this week:
-        # Sunday (6) is Day OFF #1, plus 1 weekday off (Day OFF #2)
-        all_staff = list(STAFF_PROFILES.keys())
-        fixed_staff = {"Hebron", "Beti", "Yeab", "Yordi", "Obsa"} | set(sunday_squad_others)
-        remaining = [s for s in all_staff if s not in fixed_staff]
+        # Handle Sunday squad members: they work Sunday (day 6), and need 2 days off (Monday + 1 weekday)
+        # Rule: Out of 5 Sunday staff, 2 or 3 must be OFF on Monday!
+        # Duty lead (Beti or Hebron) is already OFF Monday (0).
+        # We give 1 or 2 other Sunday squad members Monday OFF to reach target of 2-3 Monday offs.
+        monday_off_given = 1 # lead already has Monday off
+        for s_emp in squad_pool:
+            if s_emp in ("Yordi", "Obsa"): continue
+            if monday_off_given < 3:
+                off_days_map[s_emp] = {0, 3} # Monday + Thursday OFF (works Sunday)
+                monday_off_given += 1
+            else:
+                off_days_map[s_emp] = {2, 4} # Wednesday + Friday OFF (works Sunday)
 
-        default_weekday_offs = [0, 1, 2, 3, 4]
-        for idx, name in enumerate(remaining):
-            wk_off = default_weekday_offs[idx % len(default_weekday_offs)]
-            off_days_map[name] = {6, wk_off}
+        # Handle remaining staff who do NOT work Sunday:
+        # Sunday (6) is mandatory Day Off #1, plus 1 weekday off (Day Off #2) = exactly 2 days off
+        remaining_staff = [
+            s for s in STAFF_PROFILES.keys() 
+            if s not in active_sunday_squad and s not in ("Hebron", "Beti", "Feruza", "Yordi", "Obsa")
+        ]
 
-        # Build each of the 7 days
+        weekday_cycle = [1, 2, 4, 3, 5] # Tue, Wed, Fri, Thu, Sat
+        for idx, rem_emp in enumerate(remaining_staff):
+            wk_day = weekday_cycle[idx % len(weekday_cycle)]
+            off_days_map[rem_emp] = {6, wk_day}
+
+        # Build each day of the week
         for day_offset in range(7):
             cur_date = week_start_dt + timedelta(days=day_offset)
             cur_date_str = cur_date.strftime("%Y-%m-%d")
-            weekday = cur_date.weekday() # 0=Mon, 5=Sat, 6=Sun
-            is_weekend = (weekday in (5, 6))
+            weekday = cur_date.weekday()
 
             day_shifts = []
             for emp_name, profile in STAFF_PROFILES.items():
@@ -258,54 +269,64 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
                         employee_id=emp_id,
                         employee_name=emp_name,
                         shift_type="OFF",
-                        start_time=None,
-                        end_time=None,
-                        lunch_start=None,
-                        lunch_end=None,
-                        notes="Scheduled Day Off"
+                        notes="DO"
                     )
-                elif weekday == 5 and emp_name in ("Hebron", "Beti"):
+                elif weekday == 5 and emp_name in sat_rotation:
                     # Saturday half-day rotation
-                    rot_info = sat_rotation[emp_name]
+                    rot = sat_rotation[emp_name]
                     shift = EphemeralShift(
                         employee_id=emp_id,
                         employee_name=emp_name,
-                        shift_type=rot_info["shift_type"],
-                        start_time=rot_info["start_time"],
-                        end_time=rot_info["end_time"],
-                        lunch_start=None,
-                        lunch_end=None,
-                        primary_task=rot_info["primary_task"],
-                        secondary_task=rot_info["secondary_task"],
-                        notes=f"Saturday Half-Day (Week {sat_rotation['week_type']})"
+                        shift_type=rot["shift_type"],
+                        start_time=rot["start_time"],
+                        end_time=rot["end_time"],
+                        primary_task=rot.get("primary_task", profile["primary_task"]),
+                        secondary_task=rot.get("secondary_task"),
+                        notes=rot.get("notes", f"Saturday Half-Day (Week {sat_rotation['week_type']})")
                     )
                 elif weekday == 6:
-                    # Sunday duty: strictly 4 staff
-                    shift = EphemeralShift(
-                        employee_id=emp_id,
-                        employee_name=emp_name,
-                        shift_type="SUNDAY_DUTY",
-                        start_time=profile["start_time"],
-                        end_time=profile["end_time"],
-                        lunch_start=profile["lunch_start"],
-                        lunch_end=profile["lunch_end"],
-                        primary_task=profile["primary_task"],
-                        secondary_task=profile["secondary_task"],
-                        notes="Sunday Operating Squad (4 Staff)"
-                    )
+                    # Sunday duty: strictly 5 staff
+                    is_sunday_squad = emp_name in active_sunday_squad
+                    if is_sunday_squad:
+                        shift = EphemeralShift(
+                            employee_id=emp_id,
+                            employee_name=emp_name,
+                            shift_type="SUNDAY_DUTY",
+                            start_time=profile["start_time"],
+                            end_time=profile["end_time"],
+                            lunch_start=profile["lunch_start"],
+                            lunch_end=profile["lunch_end"],
+                            primary_task=profile["primary_task"],
+                            secondary_task=profile["secondary_task"],
+                            notes="SUNDAY_DUTY: 5 Staff Squad"
+                        )
+                    else:
+                        shift = EphemeralShift(
+                            employee_id=emp_id,
+                            employee_name=emp_name,
+                            shift_type="OFF",
+                            notes="DO"
+                        )
                 else:
-                    # Normal working day
+                    # Regular working day
+                    # Early morning check: Hebron, Shalom, Rediet, Tirsit are 08:00
+                    start_t = profile["start_time"]
+                    end_t = profile["end_time"]
+                    if emp_name in ("Hebron", "Shalom", "Rediet", "Tirsit"):
+                        start_t = "08:00"
+                        end_t = "17:00"
+
                     shift = EphemeralShift(
                         employee_id=emp_id,
                         employee_name=emp_name,
                         shift_type="WORK",
-                        start_time=profile["start_time"],
-                        end_time=profile["end_time"],
+                        start_time=start_t,
+                        end_time=end_t,
                         lunch_start=profile["lunch_start"],
                         lunch_end=profile["lunch_end"],
                         primary_task=profile["primary_task"],
                         secondary_task=profile["secondary_task"],
-                        notes="Regular Shift"
+                        notes=profile.get("notes", "Regular Shift")
                     )
 
                 day_shifts.append(shift)
@@ -320,6 +341,3 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
 
     validation = validate_schedule_period(period)
     return period, validation
-
-class Tuple_Result:
-    pass

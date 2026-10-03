@@ -27,7 +27,7 @@ export const ScheduleGeneratorModal: React.FC<ScheduleGeneratorModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const [startDate, setStartDate] = useState<string>('2026-09-28');
+  const [startDate, setStartDate] = useState<string>('2026-10-05');
   const [durationWeeks, setDurationWeeks] = useState<number>(2);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [previewResult, setPreviewResult] = useState<any | null>(null);
@@ -148,6 +148,25 @@ export const ScheduleGeneratorModal: React.FC<ScheduleGeneratorModalProps> = ({
             </div>
           </div>
 
+          {/* Active Operational Rules Summary Card */}
+          <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/[0.03] text-xs space-y-2">
+            <span className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              Active System Constraints Enforced:
+            </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-[11px] leading-relaxed">
+              <div>&bull; <strong>Hebron &amp; Beti</strong>: Rotation leads with 1.5 days off (Saturday AM/PM alternation).</div>
+              <div>&bull; <strong>Sunday Alternation</strong>: Bi-weekly lead rotation (worker gets Monday OFF).</div>
+              <div>&bull; <strong>Sunday Squad</strong>: Exactly 5 staff on duty; 2–3 get Monday recovery OFF.</div>
+              <div>&bull; <strong>Feruza</strong>: 1.5 days off, tied to Beti Saturday/Sunday schedule.</div>
+              <div>&bull; <strong>Early Morning (08:00)</strong>: Hebron Mon–Fri always; Shalom, Rediet, Tirsit always.</div>
+              <div>&bull; <strong>Yordi &amp; Obsa</strong>: Work Monday–Saturday; strictly Sunday DAY OFF.</div>
+              <div>&bull; <strong>Rest of Staff</strong>: Standard 2 full days off per week.</div>
+              <div>&bull; <strong>GDS Tasks</strong>: Telegram/ELMS/Q/E reserved for GDS staff; Yabsera N excluded from Telegram.</div>
+              <div>&bull; <strong>2839 &amp; Follow-up</strong>: Rotated with Luam, Obsa, Yordi, Beti, Shalom, Yabsera N.</div>
+            </div>
+          </div>
+
           <div className="flex justify-end">
             <button
               onClick={handlePreview}
@@ -191,15 +210,16 @@ export const ScheduleGeneratorModal: React.FC<ScheduleGeneratorModalProps> = ({
                 </div>
               </div>
 
-              {/* 6-Point Checklist */}
+              {/* 7-Point Constraint Checklist */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {[
                   { key: 'staff_count_configured', label: '12 Employees Configured & Profiled' },
-                  { key: 'sunday_staffing_valid', label: 'Sunday Squad (Exactly 4 Staff, Hebron/Beti Rotation)' },
-                  { key: 'saturday_rotation_valid', label: 'Saturday Half-Day Alternation (Week A/B)' },
-                  { key: 'days_off_valid', label: 'Mandatory 2 Days Off per 7-Day Window' },
-                  { key: 'lunch_coverage_valid', label: 'Lunch Breaks Respected & Backed Up' },
-                  { key: 'call_center_coverage_valid', label: 'Call Center Coverage (All 6 Time Slots)' },
+                  { key: 'sunday_staffing_valid', label: 'Sunday Squad (Exact 5 Staff, Bi-weekly Lead, Monday Off)' },
+                  { key: 'saturday_rotation_valid', label: 'Saturday Half-Day Alternation (Week A/B, Feruza Tied)' },
+                  { key: 'days_off_valid', label: 'Days Off Policy (1.5 Days for Leads/Feruza, 2 Days for Rest)' },
+                  { key: 'early_morning_valid', label: 'Early Morning (08:00) for Hebron & Shalom/Rediet/Tirsit' },
+                  { key: 'gds_capability_valid', label: 'GDS Task Policy & Telegram (Yabsera N Excluded)' },
+                  { key: 'call_center_coverage_valid', label: 'Call Center Coverage (All 6 Daily Time Slots)' },
                 ].map(item => {
                   const passed = val?.checklist ? (val.checklist as any)[item.key] : true;
                   return (

@@ -1,28 +1,30 @@
 from datetime import datetime, date, timedelta
 
-# Reference anchor week: Monday September 28, 2026 is Week 1 (Week A for Saturday rotation)
-ANCHOR_DATE = date(2026, 9, 28)
+# Anchor date set to Monday October 5, 2026 (Guzo Go Schedule anchor)
+ANCHOR_DATE = date(2026, 10, 5)
 
 def get_week_index_from_anchor(target_date: date) -> int:
     """
-    Returns 0-based week index relative to anchor Monday 2026-09-28.
-    e.g., 2026-09-28 to 2026-10-04 is week index 0.
-    2026-10-05 to 2026-10-11 is week index 1.
+    Returns 0-based week index relative to anchor Monday 2026-10-05.
+    e.g., 2026-10-05 to 2026-10-11 is week index 0.
+    2026-10-12 to 2026-10-18 is week index 1.
     """
-    # Find Monday of target_date's week
     monday = target_date - timedelta(days=target_date.weekday())
     diff_days = (monday - ANCHOR_DATE).days
     return diff_days // 7
 
 def get_saturday_rotation(target_date: date) -> dict:
     """
-    Determines Saturday rotation for Hebron and Beti.
-    Week A (even week index from anchor):
-      Beti: Morning (09:00–14:00) -> AM_HALF
-      Hebron: Afternoon (13:00–17:00) -> PM_HALF
-    Week B (odd week index from anchor):
-      Hebron: Morning (08:00–12:00) -> AM_HALF
-      Beti: Afternoon (14:00–18:00) -> PM_HALF
+    Saturday rotation for Hebron and Beti, with Feruza tied to Beti:
+    - Weekly alternation between Hebron & Beti:
+      Week A (even index, e.g. Oct 10):
+        Beti: Morning AM_HALF (09:00–13:00, M-LHD: C)
+        Feruza: Morning AM_HALF (09:00–13:00, M-LHD: T/ELMS/Q)
+        Hebron: Afternoon PM_HALF (14:00–18:00, A-LHD)
+      Week B (odd index, e.g. Oct 17):
+        Hebron: Morning AM_HALF (08:00–12:00, M-HD)
+        Beti: Afternoon PM_HALF (13:00–17:00, A-HD)
+        Feruza: Regular or PM coverage tied to Beti
     """
     week_idx = get_week_index_from_anchor(target_date)
     is_week_a = (week_idx % 2 == 0)
@@ -33,63 +35,85 @@ def get_saturday_rotation(target_date: date) -> dict:
             "Beti": {
                 "shift_type": "AM_HALF",
                 "start_time": "09:00",
-                "end_time": "14:00",
+                "end_time": "13:00",
                 "lunch_start": None,
                 "lunch_end": None,
                 "primary_task": "Call Center",
-                "secondary_task": "Amadeus"
+                "notes": "M-LHD: C"
+            },
+            "Feruza": {
+                "shift_type": "AM_HALF",
+                "start_time": "09:00",
+                "end_time": "13:00",
+                "lunch_start": None,
+                "lunch_end": None,
+                "primary_task": "Telegram",
+                "secondary_task": "ELMS",
+                "notes": "M-LHD: T/ELMS/Q"
             },
             "Hebron": {
-                "shift_type": "PM_HALF",
-                "start_time": "13:00",
-                "end_time": "17:00",
-                "lunch_start": None,
-                "lunch_end": None,
-                "primary_task": "Call Center",
-                "secondary_task": "Telegram"
-            }
-        }
-    else:
-        return {
-            "week_type": "B",
-            "Beti": {
                 "shift_type": "PM_HALF",
                 "start_time": "14:00",
                 "end_time": "18:00",
                 "lunch_start": None,
                 "lunch_end": None,
-                "primary_task": "Call Center",
-                "secondary_task": "Amadeus"
-            },
+                "primary_task": "Telegram",
+                "notes": "A-LHD"
+            }
+        }
+    else:
+        return {
+            "week_type": "B",
             "Hebron": {
                 "shift_type": "AM_HALF",
                 "start_time": "08:00",
                 "end_time": "12:00",
                 "lunch_start": None,
                 "lunch_end": None,
+                "primary_task": "Telegram",
+                "notes": "M-HD"
+            },
+            "Beti": {
+                "shift_type": "PM_HALF",
+                "start_time": "13:00",
+                "end_time": "17:00",
+                "lunch_start": None,
+                "lunch_end": None,
                 "primary_task": "Call Center",
-                "secondary_task": "Telegram"
+                "notes": "A-HD"
+            },
+            "Feruza": {
+                "shift_type": "PM_HALF",
+                "start_time": "13:00",
+                "end_time": "17:00",
+                "lunch_start": None,
+                "lunch_end": None,
+                "primary_task": "Telegram",
+                "notes": "A-HD: T"
             }
         }
 
 def get_sunday_duty_assignment(target_date: date) -> dict:
     """
-    Determines whether Hebron or Beti is on Sunday duty.
-    Week 1 (even index): Beti WORK, Hebron OFF
-    Week 2 (odd index): Hebron WORK, Beti OFF
+    Bi-weekly Sunday duty lead rotation between Hebron and Beti:
+    - Bi-weekly cycle: (week_idx // 2) % 2 == 0 -> Beti works Sunday, Hebron OFF
+    - (week_idx // 2) % 2 == 1 -> Hebron works Sunday, Beti OFF
+    - Mandatory Rule: The duty lead working on Sunday gets Monday OFF!
     """
     week_idx = get_week_index_from_anchor(target_date)
-    is_week_1 = (week_idx % 2 == 0)
-    
-    if is_week_1:
+    is_beti_cycle = ((week_idx // 2) % 2 == 0)
+
+    if is_beti_cycle:
         return {
             "working": "Beti",
             "off": "Hebron",
-            "notes": "Week 1: Beti on Sunday duty, Hebron OFF"
+            "cycle": "Bi-weekly Beti Sunday Lead",
+            "notes": "Beti works Sunday (gets Monday OFF), Hebron OFF Sunday"
         }
     else:
         return {
             "working": "Hebron",
             "off": "Beti",
-            "notes": "Week 2: Hebron on Sunday duty, Beti OFF"
+            "cycle": "Bi-weekly Hebron Sunday Lead",
+            "notes": "Hebron works Sunday (gets Monday OFF), Beti OFF Sunday"
         }
