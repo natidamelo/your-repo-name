@@ -1143,28 +1143,40 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mt-0.5">Annual Leave</p>
                         )}
 
-                        {/* Task pills */}
+                        {/* Task rows — with times */}
                         {taskList.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
+                          <div className="flex flex-col gap-1 mt-2">
                             {shift?.tasks && shift.tasks.length > 0 ? (
-                              shift.tasks.map((taskRecord, idx) => (
-                                <span
-                                  key={`${taskRecord.task_name}-${idx}`}
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
-                                    taskRecord.is_backup
-                                      ? 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                      : getTaskBadgeStyle(taskRecord.task_name)
-                                  }`}
-                                >
-                                  {taskRecord.task_name}
-                                  {taskRecord.is_backup && <span className="text-[9px] font-bold opacity-75">BKP</span>}
-                                </span>
-                              ))
+                              shift.tasks.map((taskRecord, idx) => {
+                                const timeStr = taskRecord.start_time && taskRecord.end_time
+                                  ? `${taskRecord.start_time} – ${taskRecord.end_time}` : '';
+                                const badgeStyle = taskRecord.is_backup
+                                  ? 'bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-600/50 dark:text-amber-300'
+                                  : getTaskBadgeStyle(taskRecord.task_name);
+                                return (
+                                  <div
+                                    key={`${taskRecord.task_name}-${idx}`}
+                                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${badgeStyle}`}
+                                  >
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-bold">{taskRecord.task_name}</span>
+                                      {taskRecord.is_backup && (
+                                        <span className="text-[9px] font-black bg-amber-200 dark:bg-amber-800/60 text-amber-700 dark:text-amber-300 px-1 py-0.5 rounded">BKP</span>
+                                      )}
+                                    </div>
+                                    {timeStr && (
+                                      <span className="font-mono text-[11px] font-bold opacity-90 shrink-0 ml-2">
+                                        {timeStr}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })
                             ) : (
                               taskList.map(task => (
                                 <span
                                   key={task}
-                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${getTaskBadgeStyle(task)}`}
+                                  className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${getTaskBadgeStyle(task)}`}
                                 >
                                   {task}
                                 </span>
