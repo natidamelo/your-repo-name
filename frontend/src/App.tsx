@@ -120,7 +120,10 @@ const AppContent: React.FC = () => {
       )}
 
       {currentTab === 'print' && (
-        <PrintPage onBack={() => setCurrentTab('dashboard')} />
+        <PrintPage
+          onBack={() => setCurrentTab('dashboard')}
+          initialScheduleId={activeSchedule?.id}
+        />
       )}
 
       <ScheduleGeneratorModal
