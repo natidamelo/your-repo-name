@@ -155,6 +155,10 @@ export interface DayCoverageSummary {
 }
 
 export interface DashboardSummary {
+  schedule_id?: number;
+  schedule_name?: string;
+  schedule_start?: string;
+  schedule_end?: string;
   reference_date: string;
   day_of_week: string;
   total_staff: number;
@@ -167,19 +171,41 @@ export interface DashboardSummary {
   conflicts_count: number;
   time_slot_coverage: TimeSlotCoverage[];
   channel_coverage: ChannelCoverage[];
+  schedule_days?: {
+    date: string;
+    day_name: string;
+    day_num: number;
+    weekday_full: string;
+    is_weekend: boolean;
+    is_sunday: boolean;
+    is_saturday: boolean;
+  }[];
+  all_schedules?: {
+    id: number;
+    name: string;
+    start_date: string;
+    end_date: string;
+    status: string;
+  }[];
   upcoming_saturday: {
     date: string;
     formatted_date: string;
     week_type: 'A' | 'B';
-    hebron: any;
-    beti: any;
+    am_staff?: { name: string; hours: string; notes?: string }[];
+    pm_staff?: { name: string; hours: string; notes?: string }[];
+    full_staff?: { name: string; hours: string; notes?: string }[];
+    off_staff?: { name: string; hours: string; notes?: string }[];
+    hebron?: any;
+    beti?: any;
   };
   upcoming_sunday: {
     date: string;
     formatted_date: string;
     duty_lead: string;
-    off_lead: string;
+    off_lead?: string;
     squad_staff: string[];
+    squad_details?: { name: string; hours: string; tasks: string[]; notes?: string; position?: string }[];
+    off_staff?: string[];
     total_squad: number;
   };
 }

@@ -176,8 +176,11 @@ export async function deleteTaskAssignmentApi(taskId: number) {
 }
 
 // Dashboard
-export async function getDashboardSummaryApi(targetDate?: string) {
-  const query = targetDate ? `?target_date=${targetDate}` : '';
+export async function getDashboardSummaryApi(targetDate?: string, scheduleId?: number) {
+  const params = new URLSearchParams();
+  if (targetDate) params.append('target_date', targetDate);
+  if (scheduleId) params.append('schedule_id', scheduleId.toString());
+  const query = params.toString() ? `?${params.toString()}` : '';
   return apiRequest(`/dashboard/summary${query}`);
 }
 
