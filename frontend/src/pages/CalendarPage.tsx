@@ -79,6 +79,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   const [showLegend, setShowLegend] = useState(false);
   const [showLunchTime, setShowLunchTime] = useState<boolean>(true);
   const [isShiftKeyModalOpen, setIsShiftKeyModalOpen] = useState<boolean>(false);
+  const [selectedMobileDayIdx, setSelectedMobileDayIdx] = useState<number>(0);
 
   // Shift Editing State
   const [selectedShift, setSelectedShift] = useState<ShiftAssignment | null>(null);
@@ -1006,159 +1007,335 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           )}
         </div>
       ) : (
-        /* ── Roster Table Grid ───────────────────────────────── */
-        <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
-          <div className="overflow-auto max-h-[calc(100vh-280px)]">
-            <table className="w-full text-left border-collapse">
-              {/* ── Head ─ */}
-              <thead className="sticky top-0 z-30">
-                <tr className="bg-secondary border-b border-border text-xs text-muted-foreground">
-                  <th className="sticky left-0 z-40 bg-secondary py-3 px-4 font-semibold uppercase tracking-wider w-48 min-w-[180px] border-r border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 text-primary" />
-                      Staff Member
-                    </div>
-                  </th>
-                  {displayedDays.map(day => {
-                    const dObj = new Date(day.date + 'T00:00:00');
-                    const isSun = dObj.getDay() === 0;
-                    const isSat = dObj.getDay() === 6;
-                    const isToday = day.date === TODAY_STR;
-                    return (
-                      <th
-                        key={day.date}
-                        onClick={() => onSelectDateForDailyView(day.date)}
-                        className={`py-2.5 px-2 text-center border-r border-border min-w-[145px] cursor-pointer hover:bg-accent/50 transition ${
-                          isToday
-                            ? 'bg-primary/10 dark:bg-primary/20 ring-2 ring-inset ring-primary/40'
-                            : isSun
-                            ? 'bg-indigo-100/80 dark:bg-indigo-950/40'
-                            : isSat
-                            ? 'bg-amber-100/80 dark:bg-amber-950/30'
-                            : 'bg-secondary'
-                        }`}
-                        title="Click to view daily assignments"
-                      >
-                        {isToday && (
-                          <span className="block text-[9px] font-bold text-primary uppercase tracking-widest mb-0.5">Today</span>
-                        )}
-                        <span className={`block text-[11px] font-bold ${
-                          isToday ? 'text-primary'
-                            : isSun ? 'text-indigo-700 dark:text-indigo-400'
-                            : isSat ? 'text-amber-700 dark:text-amber-400'
-                            : 'text-muted-foreground'
-                        }`}>
-                          {dObj.toLocaleDateString('en-US', { weekday: 'short' })}
-                        </span>
-                        <span className={`block text-xs font-bold mt-0.5 ${isToday ? 'text-primary' : 'text-foreground'}`}>
-                          {dObj.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
-                        </span>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
+        /* ── Roster Views ───────────────────────────────────── */
+        <>
+          {/* ══════════════════════════════════════════════════
+              MOBILE VIEW — Day-by-day card layout (< md)
+          ══════════════════════════════════════════════════ */}
+          <div className="md:hidden">
+            {/* Day tab strip */}
+            <div className="flex overflow-x-auto gap-1.5 pb-2 mb-3 scrollbar-none snap-x snap-mandatory">
+              {displayedDays.map((day, idx) => {
+                const dObj = new Date(day.date + 'T00:00:00');
+                const isSun = dObj.getDay() === 0;
+                const isSat = dObj.getDay() === 6;
+                const isToday = day.date === TODAY_STR;
+                const isSelected = idx === selectedMobileDayIdx;
+                const stats = dailyStats[day.date];
+                return (
+                  <button
+                    key={day.date}
+                    onClick={() => setSelectedMobileDayIdx(idx)}
+                    className={`snap-start shrink-0 flex flex-col items-center px-3 py-2 rounded-xl border transition font-medium text-xs min-w-[64px] ${
+                      isSelected
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : isToday
+                        ? 'bg-primary/10 border-primary/40 text-primary'
+                        : isSun
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-700/40 dark:text-indigo-300'
+                        : isSat
+                        ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-700/40 dark:text-amber-300'
+                        : 'bg-card border-border text-foreground'
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wide opacity-80">
+                      {dObj.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </span>
+                    <span className="text-base font-black leading-tight">
+                      {dObj.getDate()}
+                    </span>
+                    <span className="text-[9px] mt-0.5 opacity-75">
+                      {stats?.total || 0} on
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-              {/* ── Body ─ */}
-              <tbody className="divide-y divide-border/60">
-                {filteredStaffNames.map((name, rowIdx) => {
-                  const isHebronOrBeti = name === 'Hebron' || name === 'Beti';
-                  const avatarColor = getAvatarColor(name);
+            {/* Selected day header */}
+            {displayedDays[selectedMobileDayIdx] && (() => {
+              const selDay = displayedDays[selectedMobileDayIdx];
+              const dObj = new Date(selDay.date + 'T00:00:00');
+              const stats = dailyStats[selDay.date];
+              return (
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <div>
+                    <p className="text-base font-bold text-foreground">
+                      {dObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {stats?.total || 0} working · {stats?.off || 0} off
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onSelectDateForDailyView(selDay.date)}
+                    className="text-xs text-primary font-semibold flex items-center gap-1 px-2 py-1 rounded-lg border border-primary/30 bg-primary/5"
+                  >
+                    Full view <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })()}
 
-                  // Per-staff stats
-                  const workDays = displayedDays.filter(d => {
-                    const s = staffRowsMap[name]?.[d.date];
-                    return s && s.shift_type !== 'OFF';
-                  }).length;
-                  const offDays = displayedDays.length - workDays;
+            {/* Staff cards for selected day */}
+            <div className="flex flex-col gap-2.5">
+              {filteredStaffNames.map(name => {
+                const selDay = displayedDays[selectedMobileDayIdx];
+                if (!selDay) return null;
+                const shift = staffRowsMap[name]?.[selDay.date];
+                const avatarColor = getAvatarColor(name);
+                const guzoInfo = shift ? getGuzoShiftKey(shift.start_time, shift.end_time, shift.shift_type, shift.notes) : null;
+                const isOff = !shift || shift.shift_type === 'OFF';
+                const isLeave = guzoInfo?.key === 'A-L';
+                const isSunDuty = shift?.shift_type === 'SUNDAY_DUTY';
+                const taskList = shift ? getAssignedTasks(shift) : [];
 
-                  return (
-                    <tr
-                      key={name}
-                      className={`group hover:bg-accent/30 transition ${
-                        rowIdx % 2 === 0 ? 'bg-card/40' : 'bg-card'
-                      }`}
-                    >
-                      <td className="sticky left-0 z-10 bg-card py-2 px-3 border-r border-border font-medium text-xs text-foreground shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] group-hover:bg-accent/30 transition">
-                        <div className="flex items-center gap-2.5">
-                          {/* Avatar */}
-                          <div className={`w-7 h-7 rounded-full ${avatarColor} flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-sm`}>
-                            {getInitials(name)}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="font-semibold text-foreground block truncate">{name}</span>
-                            {isHebronOrBeti ? (
-                              <span className="text-[10px] text-primary font-semibold block">Rotation Lead</span>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground block">
-                                {workDays}W / {offDays}O
+                let cardBg = 'bg-card border-border';
+                if (isLeave) cardBg = 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800/40';
+                else if (isOff) cardBg = 'bg-muted/30 border-border';
+                else if (isSunDuty) cardBg = 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-700/40';
+                else cardBg = 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/30';
+
+                return (
+                  <div
+                    key={name}
+                    onClick={() => shift && role !== 'staff' && handleShiftClick(shift, selDay.date)}
+                    className={`rounded-xl border ${cardBg} p-3 shadow-xs ${role !== 'staff' && shift ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}>
+                        {getInitials(name)}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-sm text-foreground truncate">{name}</span>
+                          {/* Shift key badge */}
+                          {guzoInfo && (
+                            <span className={`shrink-0 font-mono font-black text-sm px-2.5 py-0.5 rounded-lg border ${
+                              isLeave ? 'bg-rose-100 border-rose-300 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+                              : isOff ? 'bg-slate-100 border-slate-300 text-slate-600 dark:bg-muted/40 dark:text-muted-foreground'
+                              : isSunDuty ? 'bg-indigo-100 border-indigo-300 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
+                              : 'bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            }`}>
+                              {guzoInfo.key}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Shift times */}
+                        {shift && !isOff && shift.start_time && (
+                          <p className="text-xs font-semibold text-muted-foreground mt-0.5">
+                            {shift.start_time} – {shift.end_time}
+                            {shift.lunch_start && (
+                              <span className="ml-2 text-amber-600 dark:text-amber-400">
+                                ☕ {shift.lunch_start}–{shift.lunch_end}
                               </span>
                             )}
+                          </p>
+                        )}
+                        {isOff && !isLeave && (
+                          <p className="text-xs text-muted-foreground mt-0.5">Day off</p>
+                        )}
+                        {isLeave && (
+                          <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mt-0.5">Annual Leave</p>
+                        )}
+
+                        {/* Task pills */}
+                        {taskList.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {shift?.tasks && shift.tasks.length > 0 ? (
+                              shift.tasks.map((taskRecord, idx) => (
+                                <span
+                                  key={`${taskRecord.task_name}-${idx}`}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                                    taskRecord.is_backup
+                                      ? 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                      : getTaskBadgeStyle(taskRecord.task_name)
+                                  }`}
+                                >
+                                  {taskRecord.task_name}
+                                  {taskRecord.is_backup && <span className="text-[9px] font-bold opacity-75">BKP</span>}
+                                </span>
+                              ))
+                            ) : (
+                              taskList.map(task => (
+                                <span
+                                  key={task}
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${getTaskBadgeStyle(task)}`}
+                                >
+                                  {task}
+                                </span>
+                              ))
+                            )}
                           </div>
-                        </div>
-                      </td>
-
-                      {displayedDays.map(day => {
-                        const shift = staffRowsMap[name]?.[day.date];
-                        const dObj = new Date(day.date + 'T00:00:00');
-                        const isSun = dObj.getDay() === 0;
-                        const isToday = day.date === TODAY_STR;
-                        return (
-                          <td
-                            key={day.date}
-                            onClick={() => shift && handleShiftClick(shift, day.date)}
-                            className={`py-1.5 px-1.5 border-r border-border/70 transition ${
-                              isToday
-                                ? 'bg-primary/[0.03] dark:bg-primary/[0.06]'
-                                : isSun
-                                ? 'bg-indigo-50/50 dark:bg-indigo-950/10'
-                                : ''
-                            } ${
-                              role !== 'staff'
-                                ? 'cursor-pointer hover:brightness-110 active:scale-[0.98]'
-                                : ''
-                            }`}
-                          >
-                            {getShiftBadge(shift)}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-
-              {/* ── Footer summary row ─ */}
-              <tfoot className="sticky bottom-0 z-20">
-                <tr className="bg-secondary/90 backdrop-blur border-t-2 border-border text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                  <td className="sticky left-0 z-30 bg-secondary py-2.5 px-4 border-r border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                    <div className="flex items-center gap-1.5">
-                      <CalendarDays className="w-3.5 h-3.5 text-primary" />
-                      <span>Daily Totals</span>
+                        )}
+                      </div>
                     </div>
-                  </td>
-                  {displayedDays.map(day => {
-                    const stats = dailyStats[day.date];
-                    const isToday = day.date === TODAY_STR;
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════
+              DESKTOP VIEW — Full horizontal table (≥ md)
+          ══════════════════════════════════════════════════ */}
+          <div className="hidden md:block rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
+              <table className="w-full text-left border-collapse">
+                {/* ── Head ─ */}
+                <thead className="sticky top-0 z-30">
+                  <tr className="bg-secondary border-b border-border text-xs text-muted-foreground">
+                    <th className="sticky left-0 z-40 bg-secondary py-3 px-4 font-semibold uppercase tracking-wider w-48 min-w-[180px] border-r border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-primary" />
+                        Staff Member
+                      </div>
+                    </th>
+                    {displayedDays.map(day => {
+                      const dObj = new Date(day.date + 'T00:00:00');
+                      const isSun = dObj.getDay() === 0;
+                      const isSat = dObj.getDay() === 6;
+                      const isToday = day.date === TODAY_STR;
+                      return (
+                        <th
+                          key={day.date}
+                          onClick={() => onSelectDateForDailyView(day.date)}
+                          className={`py-2.5 px-2 text-center border-r border-border min-w-[145px] cursor-pointer hover:bg-accent/50 transition ${
+                            isToday
+                              ? 'bg-primary/10 dark:bg-primary/20 ring-2 ring-inset ring-primary/40'
+                              : isSun
+                              ? 'bg-indigo-100/80 dark:bg-indigo-950/40'
+                              : isSat
+                              ? 'bg-amber-100/80 dark:bg-amber-950/30'
+                              : 'bg-secondary'
+                          }`}
+                          title="Click to view daily assignments"
+                        >
+                          {isToday && (
+                            <span className="block text-[9px] font-bold text-primary uppercase tracking-widest mb-0.5">Today</span>
+                          )}
+                          <span className={`block text-[11px] font-bold ${
+                            isToday ? 'text-primary'
+                              : isSun ? 'text-indigo-700 dark:text-indigo-400'
+                              : isSat ? 'text-amber-700 dark:text-amber-400'
+                              : 'text-muted-foreground'
+                          }`}>
+                            {dObj.toLocaleDateString('en-US', { weekday: 'short' })}
+                          </span>
+                          <span className={`block text-xs font-bold mt-0.5 ${isToday ? 'text-primary' : 'text-foreground'}`}>
+                            {dObj.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                          </span>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+
+                {/* ── Body ─ */}
+                <tbody className="divide-y divide-border/60">
+                  {filteredStaffNames.map((name, rowIdx) => {
+                    const isHebronOrBeti = name === 'Hebron' || name === 'Beti';
+                    const avatarColor = getAvatarColor(name);
+
+                    // Per-staff stats
+                    const workDays = displayedDays.filter(d => {
+                      const s = staffRowsMap[name]?.[d.date];
+                      return s && s.shift_type !== 'OFF';
+                    }).length;
+                    const offDays = displayedDays.length - workDays;
+
                     return (
-                      <td key={day.date} className={`py-2 px-2 text-center border-r border-border/60 ${isToday ? 'bg-primary/10' : ''}`}>
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                            <Clock className="w-2.5 h-2.5" />
-                            {stats?.total || 0}
-                          </span>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-muted/30 dark:text-muted-foreground">
-                            {stats?.off || 0} off
-                          </span>
-                        </div>
-                      </td>
+                      <tr
+                        key={name}
+                        className={`group hover:bg-accent/30 transition ${
+                          rowIdx % 2 === 0 ? 'bg-card/40' : 'bg-card'
+                        }`}
+                      >
+                        <td className="sticky left-0 z-10 bg-card py-2 px-3 border-r border-border font-medium text-xs text-foreground shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] group-hover:bg-accent/30 transition">
+                          <div className="flex items-center gap-2.5">
+                            {/* Avatar */}
+                            <div className={`w-7 h-7 rounded-full ${avatarColor} flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-sm`}>
+                              {getInitials(name)}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="font-semibold text-foreground block truncate">{name}</span>
+                              {isHebronOrBeti ? (
+                                <span className="text-[10px] text-primary font-semibold block">Rotation Lead</span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground block">
+                                  {workDays}W / {offDays}O
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {displayedDays.map(day => {
+                          const shift = staffRowsMap[name]?.[day.date];
+                          const dObj = new Date(day.date + 'T00:00:00');
+                          const isSun = dObj.getDay() === 0;
+                          const isToday = day.date === TODAY_STR;
+                          return (
+                            <td
+                              key={day.date}
+                              onClick={() => shift && handleShiftClick(shift, day.date)}
+                              className={`py-1.5 px-1.5 border-r border-border/70 transition ${
+                                isToday
+                                  ? 'bg-primary/[0.03] dark:bg-primary/[0.06]'
+                                  : isSun
+                                  ? 'bg-indigo-50/50 dark:bg-indigo-950/10'
+                                  : ''
+                              } ${
+                                role !== 'staff'
+                                  ? 'cursor-pointer hover:brightness-110 active:scale-[0.98]'
+                                  : ''
+                              }`}
+                            >
+                              {getShiftBadge(shift)}
+                            </td>
+                          );
+                        })}
+                      </tr>
                     );
                   })}
-                </tr>
-              </tfoot>
-            </table>
+                </tbody>
+
+                {/* ── Footer summary row ─ */}
+                <tfoot className="sticky bottom-0 z-20">
+                  <tr className="bg-secondary/90 backdrop-blur border-t-2 border-border text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                    <td className="sticky left-0 z-30 bg-secondary py-2.5 px-4 border-r border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                      <div className="flex items-center gap-1.5">
+                        <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                        <span>Daily Totals</span>
+                      </div>
+                    </td>
+                    {displayedDays.map(day => {
+                      const stats = dailyStats[day.date];
+                      const isToday = day.date === TODAY_STR;
+                      return (
+                        <td key={day.date} className={`py-2 px-2 text-center border-r border-border/60 ${isToday ? 'bg-primary/10' : ''}`}>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                              <Clock className="w-2.5 h-2.5" />
+                              {stats?.total || 0}
+                            </span>
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-muted/30 dark:text-muted-foreground">
+                              {stats?.off || 0} off
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Edit Shift Modal */}
