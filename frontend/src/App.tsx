@@ -19,7 +19,7 @@ const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState<boolean>(false);
-  const [selectedDailyDate, setSelectedDailyDate] = useState<string>('2026-09-28');
+  const [selectedDailyDate, setSelectedDailyDate] = useState<string>('2026-10-09');
   const [activeSchedule, setActiveSchedule] = useState<any | null>(null);
   const [calendarDateRange, setCalendarDateRange] = useState<{
     startDate?: string;
@@ -32,7 +32,12 @@ const AppContent: React.FC = () => {
     try {
       const list = await getSchedulesApi();
       if (list && list.length > 0) {
-        setActiveSchedule(list[0]);
+        const todayStr = '2026-10-09';
+        // Prioritize Guzo Go schedule or schedule covering today
+        const current = list.find((p: any) => p.name?.includes('Guzo Go')) ||
+                        list.find((p: any) => todayStr >= p.start_date && todayStr <= p.end_date) ||
+                        list[0];
+        setActiveSchedule(current);
       }
     } catch (err) {
       console.error('Failed to load active schedule header:', err);

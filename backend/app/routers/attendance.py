@@ -21,8 +21,8 @@ def find_schedule_day_for_date(db: Session, date_str: str, schedule_id: Optional
     """
     Finds the ScheduleDay for a given date.
     If schedule_id is provided, looks for the day in that specific schedule.
-    Otherwise, picks the day from the latest published schedule (or latest schedule)
-    covering that date.
+    Otherwise, picks the day from the published schedule covering that date,
+    prioritizing official 'Guzo Go' schedules.
     """
     base_query = (
         db.query(ScheduleDay)
@@ -34,7 +34,16 @@ def find_schedule_day_for_date(db: Session, date_str: str, schedule_id: Optional
         if day:
             return day
 
-    # Prioritize latest published schedule
+    # 1. Prioritize published schedules containing 'Guzo Go'
+    day = (
+        base_query.filter(SchedulePeriod.status == "published", SchedulePeriod.name.like("%Guzo Go%"))
+        .order_by(SchedulePeriod.id.desc())
+        .first()
+    )
+    if day:
+        return day
+
+    # 2. Prioritize latest published schedule
     day = (
         base_query.filter(SchedulePeriod.status == "published")
         .order_by(SchedulePeriod.id.desc())

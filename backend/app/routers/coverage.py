@@ -23,11 +23,19 @@ def get_day_coverage(
     if schedule_id:
         day = base_query.filter(ScheduleDay.schedule_period_id == schedule_id).first()
     else:
+        # 1. Prioritize published schedules containing 'Guzo Go'
         day = (
-            base_query.filter(SchedulePeriod.status == "published")
+            base_query.filter(SchedulePeriod.status == "published", SchedulePeriod.name.like("%Guzo Go%"))
             .order_by(SchedulePeriod.id.desc())
             .first()
         )
+        if not day:
+            # 2. Prioritize latest published schedule
+            day = (
+                base_query.filter(SchedulePeriod.status == "published")
+                .order_by(SchedulePeriod.id.desc())
+                .first()
+            )
         if not day:
             day = base_query.order_by(SchedulePeriod.id.desc()).first()
 

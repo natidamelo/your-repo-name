@@ -31,7 +31,8 @@ import {
   bulkMarkPresentApi,
   getPendingCoverQueueApi,
   resolveCoverApi,
-  getAttendanceSummaryApi
+  getAttendanceSummaryApi,
+  getSchedulesApi
 } from '../api/client';
 import {
   DayAttendanceResponse,
@@ -47,7 +48,7 @@ interface AttendancePageProps {
   activeScheduleId?: number;
 }
 
-export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2026-09-28', activeScheduleId }) => {
+export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2026-10-09', activeScheduleId }) => {
   const { role, user } = useAuth();
   const isAdminOrManager = role === 'admin' || role === 'manager';
 
@@ -57,6 +58,10 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Schedule selection state
+  const [schedulesList, setSchedulesList] = useState<any[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<number | undefined>(activeScheduleId);
 
   // Data state
   const [dayData, setDayData] = useState<DayAttendanceResponse | null>(null);
@@ -95,12 +100,31 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
     }
   }, [notification]);
 
+  // Load schedules list once on mount
+  useEffect(() => {
+    getSchedulesApi()
+      .then((list) => {
+        if (list && list.length > 0) {
+          setSchedulesList(list);
+          if (!selectedScheduleId && !activeScheduleId) {
+            const guzo = list.find((p: any) => p.name?.includes('Guzo Go'));
+            if (guzo) setSelectedScheduleId(guzo.id);
+          }
+        }
+      })
+      .catch(console.error);
+  }, []);
+
   // Load day attendance
-  const loadDayAttendance = async (dateStr: string) => {
+  const loadDayAttendance = async (dateStr: string, schedId?: number) => {
     setIsLoading(true);
     try {
-      const data = await getDayAttendanceApi(dateStr, activeScheduleId);
+      const targetSchedId = schedId !== undefined ? schedId : (selectedScheduleId || activeScheduleId);
+      const data = await getDayAttendanceApi(dateStr, targetSchedId);
       setDayData(data);
+      if (data?.schedule_id && !selectedScheduleId) {
+        setSelectedScheduleId(data.schedule_id);
+      }
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Failed to load day attendance' });
     } finally {
@@ -129,10 +153,10 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
   };
 
   useEffect(() => {
-    loadDayAttendance(currentDate);
+    loadDayAttendance(currentDate, selectedScheduleId);
     loadPendingCovers();
     loadSummaryStats();
-  }, [currentDate, activeScheduleId]);
+  }, [currentDate, selectedScheduleId, activeScheduleId]);
 
   // Date controls
   const changeDateBy = (days: number) => {
@@ -348,6 +372,28 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Schedule / Roster Selector */}
+            {schedulesList.length > 0 && (
+              <div className="flex items-center space-x-1.5 bg-secondary/70 border border-border rounded-lg px-2.5 py-1">
+                <CalendarRange className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="text-[11px] text-muted-foreground font-medium hidden sm:inline">Roster:</span>
+                <select
+                  value={selectedScheduleId || dayData?.schedule_id || ''}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setSelectedScheduleId(val || undefined);
+                  }}
+                  className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-[210px] truncate"
+                >
+                  {schedulesList.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-card text-foreground">
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               onClick={handleSetToday}
