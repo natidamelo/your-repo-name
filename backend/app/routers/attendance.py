@@ -62,11 +62,7 @@ def get_day_attendance(
     day_of_week = dt.weekday()
     day_name = DAY_NAMES[day_of_week]
 
-    # 1. Fetch all active employees
-    employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.id).all()
-    emp_map = {e.id: e for e in employees}
-
-    # 2. Find ScheduleDay for this date (from active/published schedule)
+    # 1. Find ScheduleDay for this date (from active/published schedule)
     schedule_day = find_schedule_day_for_date(db, date_str, schedule_id)
     active_sched_id = schedule_day.schedule_period_id if schedule_day else None
     active_sched_name = schedule_day.schedule_period.name if (schedule_day and schedule_day.schedule_period) else None
@@ -74,6 +70,14 @@ def get_day_attendance(
     if schedule_day and schedule_day.shifts:
         for s in schedule_day.shifts:
             shifts_by_emp[s.employee_id] = s
+
+    # 2. Fetch staff members (from current schedule shifts if present, else active employees)
+    if schedule_day and schedule_day.shifts:
+        sched_emp_ids = set(s.employee_id for s in schedule_day.shifts)
+        employees = db.query(Employee).filter(Employee.id.in_(sched_emp_ids)).order_by(Employee.id).all()
+    else:
+        employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.id).all()
+    emp_map = {e.id: e for e in employees}
 
     # 3. Find existing attendance records for this date
     att_records = db.query(AttendanceRecord).filter(AttendanceRecord.date == date_str).all()

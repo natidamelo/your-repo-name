@@ -74,10 +74,21 @@ def seed_database():
             skill_records[name] = sk
 
         # 3. Seed 12 Staff Members
-        print("Seeding 12 staff members...")
+        print("Ensuring current 12 staff members...")
+        # Auto-cleanup any ghost duplicate employees if inserted previously
+        ghost_emps = db.query(Employee).filter(Employee.id > 12).all()
+        if ghost_emps:
+            ghost_ids = [e.id for e in ghost_emps]
+            db.query(EmployeeSkill).filter(EmployeeSkill.employee_id.in_(ghost_ids)).delete(synchronize_session=False)
+            db.query(WorkingHours).filter(WorkingHours.employee_id.in_(ghost_ids)).delete(synchronize_session=False)
+            db.query(LunchBreak).filter(LunchBreak.employee_id.in_(ghost_ids)).delete(synchronize_session=False)
+            db.query(SpecialRule).filter(SpecialRule.employee_id.in_(ghost_ids)).delete(synchronize_session=False)
+            db.query(Employee).filter(Employee.id.in_(ghost_ids)).delete(synchronize_session=False)
+            db.commit()
+
         STAFF_CONFIGS = [
             {
-                "first_name": "Hebron",
+                "first_name": "HEBRON",
                 "position": "Senior Agent / Rotation Lead",
                 "start_time": "08:00", "end_time": "17:00",
                 "lunch_start": "12:00", "lunch_end": "13:00",
@@ -101,7 +112,7 @@ def seed_database():
                 "special_rules": ["TWO_DAYS_OFF", "TELEGRAM_BACKUP"]
             },
             {
-                "first_name": "Luam",
+                "first_name": "LUWAM",
                 "position": "Call Center Agent",
                 "start_time": "09:00", "end_time": "18:00",
                 "lunch_start": "13:00", "lunch_end": "14:00",
@@ -109,7 +120,7 @@ def seed_database():
                 "special_rules": ["TWO_DAYS_OFF"]
             },
             {
-                "first_name": "Feruza",
+                "first_name": "FERUZA",
                 "position": "Support Agent / Lunch CC Cover",
                 "start_time": "09:00", "end_time": "18:00",
                 "lunch_start": "13:00", "lunch_end": "14:00",
@@ -133,7 +144,7 @@ def seed_database():
                 "special_rules": ["TWO_DAYS_OFF", "TELEGRAM_BACKUP"]
             },
             {
-                "first_name": "Yordi",
+                "first_name": "YORDANOS",
                 "position": "Support Agent / Sunday Restricted",
                 "start_time": "09:00", "end_time": "18:00",
                 "lunch_start": "12:00", "lunch_end": "13:00",
@@ -149,7 +160,7 @@ def seed_database():
                 "special_rules": ["TWO_DAYS_OFF", "CALL_CENTER_LUNCH_COVER"]
             },
             {
-                "first_name": "Obsa",
+                "first_name": "OBSAN",
                 "position": "Call Center Agent / Sunday Restricted",
                 "start_time": "09:00", "end_time": "18:00",
                 "lunch_start": "13:00", "lunch_end": "14:00",
@@ -157,7 +168,7 @@ def seed_database():
                 "special_rules": ["SUNDAY_NEVER_WORK"]
             },
             {
-                "first_name": "Beti",
+                "first_name": "BETHEL",
                 "position": "Senior Agent / Rotation Lead",
                 "start_time": "09:00", "end_time": "18:00",
                 "lunch_start": "14:00", "lunch_end": "15:00",
@@ -165,7 +176,7 @@ def seed_database():
                 "special_rules": ["SUNDAY_ALTERNATING", "SATURDAY_ROTATION", "NEVER_BOTH_OFF_WITH_HEBRON"]
             },
             {
-                "first_name": "Yeab",
+                "first_name": "Yabsera N",
                 "position": "Call Center Agent / Beti Coverage Lead",
                 "start_time": "09:00", "end_time": "18:00",
                 "lunch_start": "13:00", "lunch_end": "14:00",
@@ -176,12 +187,15 @@ def seed_database():
 
         emp_db_map = {}
         for cfg in STAFF_CONFIGS:
-            emp = db.query(Employee).filter(Employee.first_name == cfg["first_name"]).first()
-            if not emp:
+            emp = db.query(Employee).filter(
+                (Employee.first_name == cfg["first_name"]) |
+                (Employee.first_name.ilike(cfg["first_name"]))
+            ).first()
+            if not emp and db.query(Employee).count() < 12:
                 emp = Employee(
                     first_name=cfg["first_name"],
                     position=cfg["position"],
-                    email=f"{cfg['first_name'].lower()}@callcenter.local",
+                    email=f"{cfg['first_name'].lower().replace(' ', '')}@callcenter.local",
                     is_active=True
                 )
                 db.add(emp)

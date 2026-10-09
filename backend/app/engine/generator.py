@@ -172,8 +172,20 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
 
     def get_emp_id(name: str) -> int:
         if not employee_db_map: return 0
+        n_low = name.lower().strip()
+        synonyms = {
+            "luam": "luwam", "luwam": "luam",
+            "yordi": "yordanos", "yordanos": "yordi",
+            "obsa": "obsan", "obsan": "obsa",
+            "beti": "bethel", "bethel": "beti",
+            "yeab": "yabsera n", "yabsera": "yabsera n"
+        }
+        target_names = {n_low}
+        if n_low in synonyms:
+            target_names.add(synonyms[n_low])
         for k, v in employee_db_map.items():
-            if k.lower() in name.lower() or name.lower() in k.lower():
+            k_low = k.lower().strip()
+            if k_low in target_names or any(t and (t in k_low or k_low in t) for t in target_names):
                 return v
         return 0
 
