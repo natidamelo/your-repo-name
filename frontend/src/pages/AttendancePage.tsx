@@ -44,9 +44,10 @@ import {
 
 interface AttendancePageProps {
   initialDate?: string;
+  activeScheduleId?: number;
 }
 
-export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2026-09-28' }) => {
+export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2026-09-28', activeScheduleId }) => {
   const { role, user } = useAuth();
   const isAdminOrManager = role === 'admin' || role === 'manager';
 
@@ -98,7 +99,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
   const loadDayAttendance = async (dateStr: string) => {
     setIsLoading(true);
     try {
-      const data = await getDayAttendanceApi(dateStr);
+      const data = await getDayAttendanceApi(dateStr, activeScheduleId);
       setDayData(data);
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Failed to load day attendance' });
@@ -131,7 +132,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
     loadDayAttendance(currentDate);
     loadPendingCovers();
     loadSummaryStats();
-  }, [currentDate]);
+  }, [currentDate, activeScheduleId]);
 
   // Date controls
   const changeDateBy = (days: number) => {
@@ -232,7 +233,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
     }
     setActionLoading(true);
     try {
-      const res = await bulkMarkPresentApi(currentDate);
+      const res = await bulkMarkPresentApi(currentDate, activeScheduleId);
       setNotification({ type: 'success', message: res.message });
       loadDayAttendance(currentDate);
       loadSummaryStats();
@@ -306,6 +307,12 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
               <h1 className="text-xl font-bold tracking-tight text-foreground">
                 Attendance & Make-up Coverage
               </h1>
+              {dayData?.schedule_name && (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
+                  <CalendarRange className="w-3 h-3" />
+                  <span>{dayData.schedule_name}</span>
+                </span>
+              )}
               {!isAdminOrManager && (
                 <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-muted text-muted-foreground border border-border">
                   View Only

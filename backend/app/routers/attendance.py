@@ -4,7 +4,7 @@ from typing import List, Optional
 import datetime
 from app.database import get_db
 from app.models import (
-    AttendanceRecord, Employee, ScheduleDay, ShiftAssignment, User, AuditLog
+    AttendanceRecord, Employee, ScheduleDay, ShiftAssignment, SchedulePeriod, User, AuditLog
 )
 from app.schemas import (
     AttendanceRecordCreate, AttendanceRecordUpdate, AttendanceRecordResponse,
@@ -17,9 +17,38 @@ router = APIRouter(prefix="/attendance", tags=["Attendance & Coverage"])
 
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+def find_schedule_day_for_date(db: Session, date_str: str, schedule_id: Optional[int] = None) -> Optional[ScheduleDay]:
+    """
+    Finds the ScheduleDay for a given date.
+    If schedule_id is provided, looks for the day in that specific schedule.
+    Otherwise, picks the day from the latest published schedule (or latest schedule)
+    covering that date.
+    """
+    base_query = (
+        db.query(ScheduleDay)
+        .join(SchedulePeriod, ScheduleDay.schedule_period_id == SchedulePeriod.id)
+        .filter(ScheduleDay.date == date_str)
+    )
+    if schedule_id:
+        day = base_query.filter(ScheduleDay.schedule_period_id == schedule_id).first()
+        if day:
+            return day
+
+    # Prioritize latest published schedule
+    day = (
+        base_query.filter(SchedulePeriod.status == "published")
+        .order_by(SchedulePeriod.id.desc())
+        .first()
+    )
+    if not day:
+        # Fallback to latest schedule regardless of status
+        day = base_query.order_by(SchedulePeriod.id.desc()).first()
+    return day
+
 @router.get("/day/{date_str}", response_model=DayAttendanceResponse)
 def get_day_attendance(
     date_str: str,
+    schedule_id: Optional[int] = Query(None, description="Optional specific schedule period ID"),
     db: Session = Depends(get_db)
 ):
     """
@@ -37,8 +66,10 @@ def get_day_attendance(
     employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.id).all()
     emp_map = {e.id: e for e in employees}
 
-    # 2. Find ScheduleDay for this date (if available)
-    schedule_day = db.query(ScheduleDay).filter(ScheduleDay.date == date_str).first()
+    # 2. Find ScheduleDay for this date (from active/published schedule)
+    schedule_day = find_schedule_day_for_date(db, date_str, schedule_id)
+    active_sched_id = schedule_day.schedule_period_id if schedule_day else None
+    active_sched_name = schedule_day.schedule_period.name if (schedule_day and schedule_day.schedule_period) else None
     shifts_by_emp: dict = {}
     if schedule_day and schedule_day.shifts:
         for s in schedule_day.shifts:
@@ -142,6 +173,8 @@ def get_day_attendance(
         late_count=late_count,
         excused_count=excused_count,
         pending_cover_count=pending_cover_count,
+        schedule_id=active_sched_id,
+        schedule_name=active_sched_name,
         records=items
     )
 
@@ -247,6 +280,7 @@ def create_or_update_attendance(
 @router.post("/bulk-mark-present")
 def bulk_mark_present_for_date(
     date_str: str = Query(..., description="Date YYYY-MM-DD to mark present"),
+    schedule_id: Optional[int] = Query(None, description="Optional specific schedule period ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin", "manager"]))
 ):
@@ -255,7 +289,7 @@ def bulk_mark_present_for_date(
     (skips anyone already explicitly marked ABSENT, LATE, or EXCUSED).
     """
     # Find scheduled day
-    schedule_day = db.query(ScheduleDay).filter(ScheduleDay.date == date_str).first()
+    schedule_day = find_schedule_day_for_date(db, date_str, schedule_id)
     working_emp_ids = set()
     if schedule_day and schedule_day.shifts:
         for s in schedule_day.shifts:

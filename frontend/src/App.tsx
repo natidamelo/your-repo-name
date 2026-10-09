@@ -101,7 +101,10 @@ const AppContent: React.FC = () => {
       )}
 
       {currentTab === 'attendance' && (
-        <AttendancePage initialDate={selectedDailyDate} />
+        <AttendancePage
+          initialDate={selectedDailyDate}
+          activeScheduleId={activeSchedule?.id}
+        />
       )}
 
       {currentTab === 'coverage' && (

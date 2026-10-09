@@ -10,8 +10,27 @@ from app.engine.coverage import calculate_day_coverage, calculate_matrix_summary
 router = APIRouter(prefix="/coverage", tags=["Coverage"])
 
 @router.get("/day/{date_str}", response_model=DayCoverageSummary)
-def get_day_coverage(date_str: str, db: Session = Depends(get_db)):
-    day = db.query(ScheduleDay).filter(ScheduleDay.date == date_str).first()
+def get_day_coverage(
+    date_str: str,
+    schedule_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    base_query = (
+        db.query(ScheduleDay)
+        .join(SchedulePeriod, ScheduleDay.schedule_period_id == SchedulePeriod.id)
+        .filter(ScheduleDay.date == date_str)
+    )
+    if schedule_id:
+        day = base_query.filter(ScheduleDay.schedule_period_id == schedule_id).first()
+    else:
+        day = (
+            base_query.filter(SchedulePeriod.status == "published")
+            .order_by(SchedulePeriod.id.desc())
+            .first()
+        )
+        if not day:
+            day = base_query.order_by(SchedulePeriod.id.desc()).first()
+
     if not day:
         raise HTTPException(status_code=404, detail="No schedule found for the specified date")
 

@@ -208,8 +208,8 @@ export async function validateScheduleApi(scheduleId: number) {
 }
 
 // Coverage
-export async function getDayCoverageApi(dateStr: string) {
-  return apiRequest(`/coverage/day/${dateStr}`);
+export async function getDayCoverageApi(dateStr: string, scheduleId?: number) {
+  return apiRequest(`/coverage/day/${dateStr}${scheduleId ? `?schedule_id=${scheduleId}` : ''}`);
 }
 
 export async function getScheduleCoverageMatrixApi(scheduleId: number) {
@@ -321,8 +321,9 @@ export function exportScheduleExcel(scheduleId: number, startDate?: string, endD
 }
 
 // Attendance & Coverage APIs
-export async function getDayAttendanceApi(dateStr: string) {
-  return apiRequest(`/attendance/day/${dateStr}`);
+export async function getDayAttendanceApi(dateStr: string, scheduleId?: number) {
+  const qs = scheduleId ? `?schedule_id=${scheduleId}` : '';
+  return apiRequest(`/attendance/day/${dateStr}${qs}`);
 }
 
 export async function recordAttendanceApi(data: {
@@ -345,8 +346,9 @@ export async function recordAttendanceApi(data: {
   });
 }
 
-export async function bulkMarkPresentApi(dateStr: string) {
-  return apiRequest(`/attendance/bulk-mark-present?date_str=${encodeURIComponent(dateStr)}`, {
+export async function bulkMarkPresentApi(dateStr: string, scheduleId?: number) {
+  const schedParam = scheduleId ? `&schedule_id=${scheduleId}` : '';
+  return apiRequest(`/attendance/bulk-mark-present?date_str=${encodeURIComponent(dateStr)}${schedParam}`, {
     method: 'POST'
   });
 }

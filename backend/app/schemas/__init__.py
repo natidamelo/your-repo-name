@@ -388,6 +388,8 @@ class DayAttendanceResponse(BaseModel):
     late_count: int
     excused_count: int
     pending_cover_count: int
+    schedule_id: Optional[int] = None
+    schedule_name: Optional[str] = None
     records: List[DayStaffAttendanceItem]
 
 class PendingCoverItem(BaseModel):

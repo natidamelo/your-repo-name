@@ -322,6 +322,8 @@ export interface DayAttendanceResponse {
   late_count: number;
   excused_count: number;
   pending_cover_count: number;
+  schedule_id?: number;
+  schedule_name?: string;
   records: DayStaffAttendanceItem[];
 }
 
