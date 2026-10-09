@@ -10,6 +10,7 @@ import { EmployeesPage } from './pages/EmployeesPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PrintPage } from './pages/PrintPage';
+import { AttendancePage } from './pages/AttendancePage';
 import { LoginPage } from './pages/LoginPage';
 import { ScheduleGeneratorModal } from './components/schedule/ScheduleGeneratorModal';
 import { getSchedulesApi } from './api/client';
@@ -97,6 +98,10 @@ const AppContent: React.FC = () => {
 
       {currentTab === 'daily' && (
         <DailyStaffPage initialDate={selectedDailyDate} />
+      )}
+
+      {currentTab === 'attendance' && (
+        <AttendancePage initialDate={selectedDailyDate} />
       )}
 
       {currentTab === 'coverage' && (

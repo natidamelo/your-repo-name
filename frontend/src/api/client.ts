@@ -319,3 +319,66 @@ export function exportScheduleExcel(scheduleId: number, startDate?: string, endD
   link.click();
   document.body.removeChild(link);
 }
+
+// Attendance & Coverage APIs
+export async function getDayAttendanceApi(dateStr: string) {
+  return apiRequest(`/attendance/day/${dateStr}`);
+}
+
+export async function recordAttendanceApi(data: {
+  employee_id: number;
+  date: string;
+  status: string;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  late_minutes?: number;
+  admin_remark?: string | null;
+  needs_next_week_cover?: boolean;
+  cover_status?: string;
+  cover_notes?: string | null;
+  covered_by_employee_id?: number | null;
+  target_cover_date?: string | null;
+}) {
+  return apiRequest('/attendance/record', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function bulkMarkPresentApi(dateStr: string) {
+  return apiRequest(`/attendance/bulk-mark-present?date_str=${encodeURIComponent(dateStr)}`, {
+    method: 'POST'
+  });
+}
+
+export async function getPendingCoverQueueApi() {
+  return apiRequest('/attendance/pending-cover');
+}
+
+export async function resolveCoverApi(
+  attendanceId: number,
+  data: {
+    cover_status: string;
+    cover_notes?: string | null;
+    target_cover_date?: string | null;
+  }
+) {
+  return apiRequest(`/attendance/resolve-cover/${attendanceId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function getAttendanceSummaryApi(params?: {
+  start_date?: string;
+  end_date?: string;
+  employee_id?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.start_date) query.append('start_date', params.start_date);
+  if (params?.end_date) query.append('end_date', params.end_date);
+  if (params?.employee_id) query.append('employee_id', String(params.employee_id));
+  const qs = query.toString();
+  return apiRequest(`/attendance/summary${qs ? `?${qs}` : ''}`);
+}
+

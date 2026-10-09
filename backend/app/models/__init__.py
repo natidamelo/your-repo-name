@@ -1,6 +1,6 @@
 import datetime
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
+    Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -231,6 +231,41 @@ class SystemConstraint(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+
+class AttendanceRecord(Base):
+    __tablename__ = "attendance_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
+    schedule_day_id = Column(Integer, ForeignKey("schedule_days.id", ondelete="SET NULL"), nullable=True)
+    shift_assignment_id = Column(Integer, ForeignKey("shift_assignments.id", ondelete="SET NULL"), nullable=True)
+    
+    status = Column(String(20), default="PRESENT", nullable=False) # PRESENT, ABSENT, LATE, HALF_DAY, EXCUSED
+    check_in_time = Column(String(10), nullable=True)   # e.g. "08:15"
+    check_out_time = Column(String(10), nullable=True)  # e.g. "17:00"
+    late_minutes = Column(Integer, default=0, nullable=False)
+    admin_remark = Column(Text, nullable=True)          # Admin remark explaining absence / tardiness
+
+    # Absence coverage & next week make-up shift fields
+    needs_next_week_cover = Column(Boolean, default=False, nullable=False) # Admin assigns: must cover next week
+    cover_status = Column(String(20), default="NONE", nullable=False)      # NONE, PENDING, SCHEDULED, COMPLETED, WAIVED
+    cover_notes = Column(Text, nullable=True)                              # e.g. "Cover next Saturday shift or make up 8 hrs"
+    covered_by_employee_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"), nullable=True) # Who covered today
+    target_cover_date = Column(String(10), nullable=True)                  # Scheduled make-up date YYYY-MM-DD
+
+    recorded_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("employee_id", "date", name="uq_employee_date_attendance"),
+    )
+
+    employee = relationship("Employee", foreign_keys=[employee_id])
+    covered_by = relationship("Employee", foreign_keys=[covered_by_employee_id])
+    shift_assignment = relationship("ShiftAssignment")
+    recorded_by = relationship("User", foreign_keys=[recorded_by_user_id])
 
 
 class AuditLog(Base):

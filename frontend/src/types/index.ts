@@ -261,3 +261,91 @@ export interface AuditLogItem {
   new_value?: string;
   reason?: string;
 }
+
+// Attendance & Next-Week Coverage
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED';
+export type CoverStatus = 'NONE' | 'PENDING' | 'SCHEDULED' | 'COMPLETED' | 'WAIVED';
+
+export interface AttendanceRecord {
+  id: number;
+  employee_id: number;
+  employee_name?: string;
+  date: string;
+  status: AttendanceStatus;
+  check_in_time?: string;
+  check_out_time?: string;
+  late_minutes: number;
+  admin_remark?: string;
+  needs_next_week_cover: boolean;
+  cover_status: CoverStatus;
+  cover_notes?: string;
+  covered_by_employee_id?: number;
+  covered_by_name?: string;
+  target_cover_date?: string;
+  recorded_by_name?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DayStaffAttendanceItem {
+  employee_id: number;
+  employee_name: string;
+  position: string;
+  is_scheduled_work: boolean;
+  shift_type?: string;
+  scheduled_start?: string;
+  scheduled_end?: string;
+  primary_task?: string;
+  secondary_task?: string;
+  attendance_id?: number;
+  status?: AttendanceStatus;
+  check_in_time?: string;
+  check_out_time?: string;
+  late_minutes: number;
+  admin_remark?: string;
+  needs_next_week_cover: boolean;
+  cover_status: CoverStatus;
+  cover_notes?: string;
+  covered_by_employee_id?: number;
+  covered_by_name?: string;
+  target_cover_date?: string;
+}
+
+export interface DayAttendanceResponse {
+  date: string;
+  day_of_week: number;
+  day_name: string;
+  total_staff: number;
+  scheduled_count: number;
+  present_count: number;
+  absent_count: number;
+  late_count: number;
+  excused_count: number;
+  pending_cover_count: number;
+  records: DayStaffAttendanceItem[];
+}
+
+export interface PendingCoverItem {
+  attendance_id: number;
+  employee_id: number;
+  employee_name: string;
+  position: string;
+  absence_date: string;
+  shift_type: string;
+  admin_remark?: string;
+  cover_status: CoverStatus;
+  cover_notes?: string;
+  target_cover_date?: string;
+}
+
+export interface AttendanceSummaryStats {
+  total_records: number;
+  total_present: number;
+  total_absent: number;
+  total_late: number;
+  total_excused: number;
+  total_late_minutes: number;
+  total_pending_cover: number;
+  attendance_rate_percent: number;
+}
+

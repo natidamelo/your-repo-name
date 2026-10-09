@@ -4,3 +4,8 @@ from pathlib import Path
 # Add backend directory to sys.path
 backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
+
+from app.database import Base, engine
+import app.models  # Ensure all models are registered
+Base.metadata.create_all(bind=engine)
+
