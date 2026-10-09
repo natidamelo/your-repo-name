@@ -8,7 +8,7 @@ sys.path.insert(0, str(backend_dir))
 from app.database import SessionLocal, engine, Base
 from app.models import (
     User, Employee, Skill, EmployeeSkill, WorkingHours, LunchBreak, SpecialRule,
-    SchedulePeriod, ScheduleDay, ShiftAssignment, ScheduleConflict, SystemSetting, AuditLog
+    SchedulePeriod, ScheduleDay, ShiftAssignment, ScheduleConflict, SystemSetting, SystemConstraint, AuditLog
 )
 from app.core.security import get_password_hash
 from app.engine.generator import generate_schedule_data, STAFF_PROFILES
@@ -294,6 +294,11 @@ def seed_database():
             print("Successfully seeded initial 2-week schedule!")
         else:
             print("Initial schedule already present.")
+
+        # 5. Seed System Constraints
+        print("Seeding operational system constraints...")
+        from app.routers.constraints import ensure_default_constraints
+        ensure_default_constraints(db)
 
         print("Database seeding completed successfully.")
 

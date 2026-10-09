@@ -216,6 +216,23 @@ class SystemSetting(Base):
     description = Column(String(255), nullable=True)
 
 
+class SystemConstraint(Base):
+    __tablename__ = "system_constraints"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(100), nullable=False)
+    category = Column(String(50), default="GENERAL", nullable=False) # LEAD_ROTATION, SUNDAY_SQUAD, EARLY_MORNING, DAYS_OFF, TASK_ROTATION, GENERAL
+    description = Column(Text, nullable=False)
+    staff_names = Column(String(255), nullable=True, default="")
+    rule_key = Column(String(50), nullable=True, unique=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_system = Column(Boolean, default=False, nullable=False)
+    config_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

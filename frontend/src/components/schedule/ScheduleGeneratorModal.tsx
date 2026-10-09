@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -12,10 +12,12 @@ import {
   ArrowRight,
   ShieldAlert,
   Save,
-  Send
+  Send,
+  Sliders
 } from 'lucide-react';
-import { generateScheduleApi, publishScheduleApi } from '../../api/client';
-import { ValidationResult } from '../../types';
+import { generateScheduleApi, publishScheduleApi, getConstraintsApi } from '../../api/client';
+import { ValidationResult, SystemConstraint } from '../../types';
+import { ConstraintManagerModal } from '../constraints/ConstraintManagerModal';
 
 interface ScheduleGeneratorModalProps {
   isOpen: boolean;
@@ -34,6 +36,25 @@ export const ScheduleGeneratorModal: React.FC<ScheduleGeneratorModalProps> = ({
   const [previewResult, setPreviewResult] = useState<any | null>(null);
   const [showIssuesTab, setShowIssuesTab] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  // Constraints State
+  const [constraints, setConstraints] = useState<SystemConstraint[]>([]);
+  const [isConstraintManagerOpen, setIsConstraintManagerOpen] = useState<boolean>(false);
+
+  const fetchConstraints = async () => {
+    try {
+      const data = await getConstraintsApi(true);
+      setConstraints(data);
+    } catch (err) {
+      console.error('Failed to load constraints:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchConstraints();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -157,20 +178,46 @@ export const ScheduleGeneratorModal: React.FC<ScheduleGeneratorModalProps> = ({
 
           {/* Active Operational Rules Summary Card */}
           <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/[0.03] text-xs space-y-2">
-            <span className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              Active System Constraints Enforced:
-            </span>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-[11px] leading-relaxed">
-              <div>&bull; <strong>Hebron &amp; Beti</strong>: Rotation leads with 1.5 days off (Saturday AM/PM alternation).</div>
-              <div>&bull; <strong>Sunday Alternation</strong>: Bi-weekly lead rotation (worker gets Monday OFF).</div>
-              <div>&bull; <strong>Sunday Squad</strong>: Exactly 5 staff on duty; 2–3 get Monday recovery OFF.</div>
-              <div>&bull; <strong>Feruza</strong>: 1.5 days off, tied to Beti Saturday/Sunday schedule.</div>
-              <div>&bull; <strong>Early Morning (08:00)</strong>: Hebron Mon–Fri always; Shalom, Rediet, Tirsit always.</div>
-              <div>&bull; <strong>Yordi &amp; Obsa</strong>: Work Monday–Saturday; strictly Sunday DAY OFF.</div>
-              <div>&bull; <strong>Rest of Staff</strong>: Standard 2 full days off per week.</div>
-              <div>&bull; <strong>GDS Tasks</strong>: Telegram/ELMS/Q/E reserved for GDS staff; Yabsera N excluded from Telegram.</div>
-              <div>&bull; <strong>2839 &amp; Follow-up</strong>: Rotated with Luam, Obsa, Yordi, Beti, Shalom, Yabsera N.</div>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                Active System Constraints Enforced:
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/10 text-primary border border-primary/20 font-mono">
+                  {constraints.length > 0 ? `${constraints.length} Active` : 'Enforced'}
+                </span>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setIsConstraintManagerOpen(true)}
+                className="h-6 px-2.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-[11px] font-semibold flex items-center space-x-1 transition active:scale-95"
+                title="Add new constraints or edit existing operational rules"
+              >
+                <Sliders className="w-3 h-3" />
+                <span>Add &amp; Edit Constraints</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5 text-muted-foreground text-[11px] leading-relaxed max-h-48 overflow-y-auto pr-1">
+              {constraints.length > 0 ? (
+                constraints.map((c) => (
+                  <div key={c.id}>
+                    &bull; <strong className="text-foreground">{c.title}</strong>: {c.description}
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>&bull; <strong>Hebron &amp; Beti</strong>: Rotation leads with 1.5 days off (Saturday AM/PM alternation).</div>
+                  <div>&bull; <strong>Sunday Alternation</strong>: Bi-weekly lead rotation (worker gets Monday OFF).</div>
+                  <div>&bull; <strong>Sunday Squad</strong>: Exactly 5 staff on duty; 2–3 get Monday recovery OFF.</div>
+                  <div>&bull; <strong>Feruza</strong>: 1.5 days off, tied to Beti Saturday/Sunday schedule.</div>
+                  <div>&bull; <strong>Early Morning (08:00)</strong>: Hebron Mon–Fri always; Shalom, Rediet, Tirsit always.</div>
+                  <div>&bull; <strong>Yordi &amp; Obsa</strong>: Work Monday–Saturday; strictly Sunday DAY OFF.</div>
+                  <div>&bull; <strong>Rest of Staff</strong>: Standard 2 full days off per week.</div>
+                  <div>&bull; <strong>GDS Tasks</strong>: Telegram/ELMS/Q/E reserved for GDS staff; Yabsera N excluded from Telegram.</div>
+                  <div>&bull; <strong>2839 &amp; Follow-up</strong>: Rotated with Luam, Obsa, Yordi, Beti, Shalom, Yabsera N.</div>
+                </>
+              )}
             </div>
           </div>
 
@@ -332,6 +379,13 @@ export const ScheduleGeneratorModal: React.FC<ScheduleGeneratorModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Constraint Manager Modal for Add & Edit */}
+      <ConstraintManagerModal
+        isOpen={isConstraintManagerOpen}
+        onClose={() => setIsConstraintManagerOpen(false)}
+        onConstraintsChanged={fetchConstraints}
+      />
     </div>
   );
 

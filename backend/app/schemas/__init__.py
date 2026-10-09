@@ -111,6 +111,7 @@ class EmployeeCreate(EmployeeBase):
     skill_ids: Optional[List[int]] = []
     lunch_start: Optional[str] = "12:00"
     lunch_end: Optional[str] = "13:00"
+    special_rules: Optional[List[str]] = []
 
 class EmployeeUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -123,6 +124,7 @@ class EmployeeUpdate(BaseModel):
     skill_ids: Optional[List[int]] = None
     lunch_start: Optional[str] = None
     lunch_end: Optional[str] = None
+    special_rules: Optional[List[str]] = None
 
 class EmployeeDetailResponse(EmployeeBase):
     id: int
@@ -278,6 +280,37 @@ class SettingResponse(BaseModel):
 class SettingUpdate(BaseModel):
     key: str
     value: str
+
+# --- SYSTEM CONSTRAINTS SCHEMAS ---
+class SystemConstraintBase(BaseModel):
+    title: str
+    category: str = "GENERAL"
+    description: str
+    staff_names: Optional[str] = ""
+    is_active: bool = True
+    rule_key: Optional[str] = None
+    config_json: Optional[str] = None
+
+class SystemConstraintCreate(SystemConstraintBase):
+    pass
+
+class SystemConstraintUpdate(BaseModel):
+    title: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    staff_names: Optional[str] = None
+    is_active: Optional[bool] = None
+    config_json: Optional[str] = None
+
+class SystemConstraintResponse(SystemConstraintBase):
+    id: int
+    is_system: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 
 # --- AUDIT LOG SCHEMA ---
 class AuditLogResponse(BaseModel):

@@ -12,6 +12,17 @@ import {
 import { getEmployeesApi, updateEmployeeApi, createEmployeeApi, getSkillsApi } from '../api/client';
 import { Employee, Skill } from '../types';
 
+const AVAILABLE_SPECIAL_RULES = [
+  { code: 'SUNDAY_ALTERNATING', label: 'Sunday Lead Rotation' },
+  { code: 'SATURDAY_ROTATION', label: 'Saturday Half-Day Lead' },
+  { code: 'SUNDAY_NEVER_WORK', label: 'Sunday Strictly OFF' },
+  { code: 'EARLY_MORNING', label: 'Early Morning (08:00)' },
+  { code: 'YEAB_COVERS_BETI', label: 'Covers Beti' },
+  { code: 'CALL_CENTER_LUNCH_COVER', label: 'Lunch CC Cover' },
+  { code: 'TELEGRAM_BACKUP', label: 'Backup Telegram' },
+  { code: 'TWO_DAYS_OFF', label: '2 Days Off Weekly' },
+];
+
 export const EmployeesPage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [skillsList, setSkillsList] = useState<Skill[]>([]);
@@ -26,6 +37,7 @@ export const EmployeesPage: React.FC = () => {
   const [lunchStart, setLunchStart] = useState<string>('12:00');
   const [lunchEnd, setLunchEnd] = useState<string>('13:00');
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
+  const [selectedRules, setSelectedRules] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const fetchEmployeesAndSkills = async () => {
@@ -56,6 +68,7 @@ export const EmployeesPage: React.FC = () => {
     setLunchStart('12:00');
     setLunchEnd('13:00');
     setSelectedSkillIds([]);
+    setSelectedRules(['TWO_DAYS_OFF']);
     setIsModalOpen(true);
   };
 
@@ -67,12 +80,19 @@ export const EmployeesPage: React.FC = () => {
     setLunchStart(emp.lunch_break?.start_time || '12:00');
     setLunchEnd(emp.lunch_break?.end_time || '13:00');
     setSelectedSkillIds(emp.skills.map(s => s.skill_id));
+    setSelectedRules(emp.special_rules ? emp.special_rules.map(r => r.rule_type) : []);
     setIsModalOpen(true);
   };
 
   const toggleSkill = (id: number) => {
     setSelectedSkillIds(prev => 
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleRule = (code: string) => {
+    setSelectedRules(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
     );
   };
 
@@ -87,7 +107,8 @@ export const EmployeesPage: React.FC = () => {
           position,
           lunch_start: lunchStart,
           lunch_end: lunchEnd,
-          skill_ids: selectedSkillIds
+          skill_ids: selectedSkillIds,
+          special_rules: selectedRules
         });
       } else {
         await createEmployeeApi({
@@ -96,7 +117,8 @@ export const EmployeesPage: React.FC = () => {
           position,
           lunch_start: lunchStart,
           lunch_end: lunchEnd,
-          skill_ids: selectedSkillIds
+          skill_ids: selectedSkillIds,
+          special_rules: selectedRules
         });
       }
       setIsModalOpen(false);
@@ -138,9 +160,13 @@ export const EmployeesPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {employees.map(emp => {
-            const isLead = emp.first_name === 'Hebron' || emp.first_name === 'Beti';
-            const isSundayRestricted = emp.first_name === 'Yordi' || emp.first_name === 'Obsa';
-            const isCoverageLead = emp.first_name === 'Yeab';
+            const rules = emp.special_rules?.map(r => r.rule_type) || [];
+            const isLead = rules.includes('SUNDAY_ALTERNATING') || rules.includes('SATURDAY_ROTATION') || emp.first_name === 'Hebron' || emp.first_name === 'Beti';
+            const isSundayRestricted = rules.includes('SUNDAY_NEVER_WORK') || emp.first_name === 'Yordi' || emp.first_name === 'Obsa';
+            const isCoverageLead = rules.includes('YEAB_COVERS_BETI') || emp.first_name === 'Yeab';
+            const isEarlyMorning = rules.includes('EARLY_MORNING') || ['Shalom', 'Rediet', 'Tirsit'].includes(emp.first_name);
+            const isLunchCover = rules.includes('CALL_CENTER_LUNCH_COVER');
+            const isTelegramBackup = rules.includes('TELEGRAM_BACKUP');
 
             return (
               <div
@@ -177,9 +203,24 @@ export const EmployeesPage: React.FC = () => {
                         Sunday OFF
                       </span>
                     )}
+                    {isEarlyMorning && (
+                      <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-300 px-2 py-0.5 text-[10px] font-semibold">
+                        08:00 Early
+                      </span>
+                    )}
                     {isCoverageLead && (
                       <span className="inline-flex items-center rounded-full border border-indigo-300 bg-indigo-100 text-indigo-800 dark:border-indigo-800/40 dark:bg-indigo-950/30 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-semibold">
                         Covers Beti
+                      </span>
+                    )}
+                    {isLunchCover && (
+                      <span className="inline-flex items-center rounded-full border border-purple-300 bg-purple-100 text-purple-800 dark:border-purple-800/40 dark:bg-purple-950/30 dark:text-purple-300 px-2 py-0.5 text-[10px] font-semibold">
+                        Lunch CC
+                      </span>
+                    )}
+                    {isTelegramBackup && (
+                      <span className="inline-flex items-center rounded-full border border-teal-300 bg-teal-100 text-teal-800 dark:border-teal-800/40 dark:bg-teal-950/30 dark:text-teal-300 px-2 py-0.5 text-[10px] font-semibold">
+                        Telegram BKP
                       </span>
                     )}
                   </div>
@@ -303,9 +344,9 @@ export const EmployeesPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1.5">
-                  Assigned Skills
+                  Assigned Skills ({selectedSkillIds.length})
                 </label>
-                <div className="grid grid-cols-2 gap-2 p-3 rounded-lg border border-input bg-background/50 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-2 p-3 rounded-lg border border-input bg-background/50 max-h-40 overflow-y-auto">
                   {skillsList.map(sk => {
                     const isChecked = selectedSkillIds.includes(sk.id);
                     return (
@@ -320,6 +361,32 @@ export const EmployeesPage: React.FC = () => {
                         }`}
                       >
                         <span>{sk.name}</span>
+                        {isChecked && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1.5">
+                  Special Fixed Operational Constraints ({selectedRules.length})
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-3 rounded-lg border border-input bg-background/50 max-h-40 overflow-y-auto">
+                  {AVAILABLE_SPECIAL_RULES.map(r => {
+                    const isChecked = selectedRules.includes(r.code);
+                    return (
+                      <button
+                        key={r.code}
+                        type="button"
+                        onClick={() => toggleRule(r.code)}
+                        className={`p-2 rounded-md text-xs font-medium border text-left flex items-center justify-between transition ${
+                          isChecked
+                            ? 'border-primary/50 bg-primary/10 text-primary'
+                            : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <span>{r.label}</span>
                         {isChecked && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
                       </button>
                     );

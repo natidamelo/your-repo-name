@@ -258,6 +258,44 @@ export async function updateSettingApi(key: string, value: string) {
   });
 }
 
+// System Constraints & Fixed Rules
+export async function getConstraintsApi(activeOnly: boolean = false) {
+  const q = activeOnly ? '?active_only=true' : '';
+  return apiRequest(`/constraints/${q}`);
+}
+
+export async function createConstraintApi(data: any) {
+  return apiRequest('/constraints/', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function updateConstraintApi(id: number, data: any) {
+  return apiRequest(`/constraints/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function toggleConstraintApi(id: number) {
+  return apiRequest(`/constraints/${id}/toggle`, {
+    method: 'PATCH'
+  });
+}
+
+export async function deleteConstraintApi(id: number) {
+  return apiRequest(`/constraints/${id}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function resetConstraintsApi() {
+  return apiRequest('/constraints/reset', {
+    method: 'POST'
+  });
+}
+
 // Audit Logs
 export async function getAuditLogsApi() {
   return apiRequest('/audit-logs/');

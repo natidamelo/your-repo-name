@@ -95,6 +95,12 @@ def create_employee(
             es = EmployeeSkill(employee_id=emp.id, skill_id=s_id, proficiency_level="primary")
             db.add(es)
 
+    # Add special rules
+    if emp_in.special_rules:
+        for r in emp_in.special_rules:
+            sr = SpecialRule(employee_id=emp.id, rule_type=r)
+            db.add(sr)
+
     db.commit()
     db.refresh(emp)
     return build_employee_response(emp)
@@ -140,6 +146,13 @@ def update_employee(
         for s_id in emp_in.skill_ids:
             es = EmployeeSkill(employee_id=emp.id, skill_id=s_id, proficiency_level="primary")
             db.add(es)
+
+    if emp_in.special_rules is not None:
+        # replace special rules
+        db.query(SpecialRule).filter(SpecialRule.employee_id == emp.id).delete()
+        for r in emp_in.special_rules:
+            sr = SpecialRule(employee_id=emp.id, rule_type=r)
+            db.add(sr)
 
     db.commit()
     db.refresh(emp)

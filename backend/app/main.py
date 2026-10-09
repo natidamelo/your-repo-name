@@ -69,6 +69,7 @@ from app.routers import (
     assignments,
     dashboard,
     settings as settings_router,
+    constraints as constraints_router,
     export,
     audit
 )
@@ -82,6 +83,7 @@ app.include_router(coverage.router, prefix=settings.API_V1_STR)
 app.include_router(assignments.router, prefix=settings.API_V1_STR)
 app.include_router(dashboard.router, prefix=settings.API_V1_STR)
 app.include_router(settings_router.router, prefix=settings.API_V1_STR)
+app.include_router(constraints_router.router, prefix=settings.API_V1_STR)
 app.include_router(export.router, prefix=settings.API_V1_STR)
 app.include_router(audit.router, prefix=settings.API_V1_STR)
 

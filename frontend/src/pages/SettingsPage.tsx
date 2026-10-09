@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Sliders, Save, Check, RotateCw, Sun, Moon, Palette, Users, Shield } from 'lucide-react';
+import { Sliders, Save, Check, RotateCw, Sun, Moon, Palette, Users, Shield, Sparkles } from 'lucide-react';
 import { getSettingsApi, updateSettingApi } from '../api/client';
 import { SystemSetting } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { UserManagementSection } from '../components/settings/UserManagementSection';
+import { SystemConstraintsSection } from '../components/settings/SystemConstraintsSection';
 
 export const SettingsPage: React.FC = () => {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'users' | 'rules' | 'appearance'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'constraints' | 'rules' | 'appearance'>('users');
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -61,29 +62,42 @@ export const SettingsPage: React.FC = () => {
         </div>
         <div>
           <h2 className="text-base font-semibold text-foreground tracking-tight">System & Interface Configuration</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Control staff & manager accounts, change passwords, and configure scheduling parameters</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Control staff accounts, operational constraints & fixed rules, and scheduling parameters</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-2 border-b border-border pb-2">
+      <div className="flex items-center space-x-2 border-b border-border pb-2 overflow-x-auto no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveTab('users')}
-          className={`h-9 px-4 rounded-lg text-xs font-semibold flex items-center space-x-2 transition ${
+          className={`h-9 px-4 rounded-lg text-xs font-semibold flex items-center space-x-2 transition shrink-0 ${
             activeTab === 'users'
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Staff & Manager Accounts</span>
+          <span>Staff Accounts</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('constraints')}
+          className={`h-9 px-4 rounded-lg text-xs font-semibold flex items-center space-x-2 transition shrink-0 ${
+            activeTab === 'constraints'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Fixed Rules &amp; Constraints</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('rules')}
-          className={`h-9 px-4 rounded-lg text-xs font-semibold flex items-center space-x-2 transition ${
+          className={`h-9 px-4 rounded-lg text-xs font-semibold flex items-center space-x-2 transition shrink-0 ${
             activeTab === 'rules'
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -96,7 +110,7 @@ export const SettingsPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('appearance')}
-          className={`h-9 px-4 rounded-lg text-xs font-semibold flex items-center space-x-2 transition ${
+          className={`h-9 px-4 rounded-lg text-xs font-semibold flex items-center space-x-2 transition shrink-0 ${
             activeTab === 'appearance'
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -110,6 +124,11 @@ export const SettingsPage: React.FC = () => {
       {/* Tab 1: Staff & Manager Accounts & Passwords */}
       {activeTab === 'users' && (
         <UserManagementSection />
+      )}
+
+      {/* Tab 2: Fixed Operational Rules & System Constraints */}
+      {activeTab === 'constraints' && (
+        <SystemConstraintsSection />
       )}
 
       {/* Tab 2: Scheduling Parameters */}

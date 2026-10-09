@@ -201,28 +201,42 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
         squad_pool = sunday_pool_rotation[week_idx % len(sunday_pool_rotation)]
         active_sunday_squad = set([duty_lead] + squad_pool)
 
+        # Determine who worked the previous Sunday (yesterday relative to this Monday)
+        prev_sun_date = week_start_dt - timedelta(days=1)
+        prev_sun_lead = get_sunday_duty_assignment(prev_sun_date)["working"] # "Hebron" or "Beti"
+        prev_week_idx = get_week_index_from_anchor(week_start_dt - timedelta(days=7))
+        prev_squad_pool = sunday_pool_rotation[prev_week_idx % len(sunday_pool_rotation)]
+
         # Off days map for this week: emp_name -> set of day offsets (0=Mon, 6=Sun)
         off_days_map: Dict[str, set] = {}
         for emp in STAFF_PROFILES.keys():
             off_days_map[emp] = set()
 
-        # Rule: Sunday duty lead gets Monday OFF
-        # Duty lead works Sunday (6 is NOT off), gets Monday (0) OFF
-        # Off lead is OFF Sunday (6 is OFF), works Monday
-        if duty_lead == "Beti":
-            off_days_map["Beti"] = {0} # Monday OFF (works Sunday)
-            off_days_map["Hebron"] = {6} # Sunday OFF (works Monday-Friday full, Sat PM half)
+        # Rule: Worker who worked Sunday gets Monday (0) OFF!
+        # The lead who worked previous Sunday gets Monday OFF this week.
+        # The lead who works THIS Sunday (6) is NOT off on Sunday; the other lead is OFF on Sunday.
+        if prev_sun_lead == "Hebron":
+            off_days_map["Hebron"].add(0) # Monday recovery OFF
         else:
-            off_days_map["Hebron"] = {0} # Monday OFF (works Sunday)
-            off_days_map["Beti"] = {6} # Sunday OFF (works Monday-Friday full, Sat half)
+            off_days_map["Beti"].add(0)   # Monday recovery OFF
+
+        # Sunday of this week
+        if duty_lead == "Hebron":
+            off_days_map["Beti"].add(6)   # Beti OFF on Sunday
+            if 0 not in off_days_map["Hebron"]:
+                off_days_map["Hebron"].add(3) # Hebron gets Thursday OFF
+        else:
+            off_days_map["Hebron"].add(6) # Hebron OFF on Sunday
+            if 0 not in off_days_map["Beti"]:
+                off_days_map["Beti"].add(3)   # Beti gets Thursday OFF
 
         # Feruza: 1.5 days off per week, tied to Beti
-        if "Feruza" in active_sunday_squad:
-            # Feruza works Sunday -> gets Monday OFF (rule: Sunday worker Monday OFF)
-            off_days_map["Feruza"] = {0}
+        if "Feruza" in prev_squad_pool:
+            off_days_map["Feruza"].add(0) # Monday recovery OFF
+        elif "Feruza" not in active_sunday_squad:
+            off_days_map["Feruza"].add(6) # Sunday OFF
         else:
-            # Feruza off on Sunday (or Thursday)
-            off_days_map["Feruza"] = {3}
+            off_days_map["Feruza"].add(3) # Midweek OFF if working Sunday
 
         # Yordi and Obsa: ALWAYS work Mon–Sat, DAY OFF on Sunday (day 6)
         off_days_map["Yordi"] = {6}

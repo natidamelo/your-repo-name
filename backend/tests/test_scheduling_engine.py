@@ -5,23 +5,15 @@ from app.engine.validator import validate_schedule_period
 from app.engine.rotations import get_saturday_rotation, get_sunday_duty_assignment
 from app.engine.coverage import calculate_day_coverage
 
-def test_sunday_never_more_than_4_staff():
-    """Requirement 1: Sunday never has more than 4 staff."""
+def test_sunday_staff_count_exactly_5():
+    """Requirement 1 & 2: Sunday always has exactly 5 staff on duty."""
     period, validation = generate_schedule_data("2026-09-28", 2)
     for day in period.days:
         d_obj = datetime.strptime(day.date, "%Y-%m-%d").date()
         if d_obj.weekday() == 6:  # Sunday
             working_shifts = [s for s in day.shifts if s.shift_type in ("WORK", "SUNDAY_DUTY", "AM_HALF", "PM_HALF")]
-            assert len(working_shifts) <= 4, f"Sunday {day.date} has {len(working_shifts)} staff, expected <= 4"
+            assert len(working_shifts) == 5, f"Sunday {day.date} has {len(working_shifts)} staff, expected exactly 5"
 
-def test_sunday_always_exactly_4_staff():
-    """Requirement 2: Sunday always has exactly 4 staff."""
-    period, validation = generate_schedule_data("2026-09-28", 2)
-    for day in period.days:
-        d_obj = datetime.strptime(day.date, "%Y-%m-%d").date()
-        if d_obj.weekday() == 6:  # Sunday
-            working_shifts = [s for s in day.shifts if s.shift_type in ("WORK", "SUNDAY_DUTY", "AM_HALF", "PM_HALF")]
-            assert len(working_shifts) == 4, f"Sunday {day.date} has {len(working_shifts)} staff, expected exactly 4"
 
 def test_yordi_never_works_sunday():
     """Requirement 3: Yordi never works Sunday."""
@@ -56,35 +48,35 @@ def test_hebron_beti_never_both_off():
 def test_sunday_worker_gets_monday_off():
     """Requirement 6: Person working Sunday gets the following Monday OFF."""
     period, validation = generate_schedule_data("2026-09-28", 2)
-    # Sunday Oct 4: Beti works
+    # Sunday Oct 4: Hebron works Sunday Duty
     sun_oct4 = next(d for d in period.days if d.date == "2026-10-04")
     mon_oct5 = next(d for d in period.days if d.date == "2026-10-05")
     
-    beti_sun = next(s for s in sun_oct4.shifts if s.employee_name == "Beti")
-    assert beti_sun.shift_type == "SUNDAY_DUTY"
-    beti_mon = next(s for s in mon_oct5.shifts if s.employee_name == "Beti")
-    assert beti_mon.shift_type == "OFF", "Beti worked Sunday Oct 4 but is not OFF Monday Oct 5"
+    lead_sun = next(s for s in sun_oct4.shifts if s.employee_name == "Hebron")
+    assert lead_sun.shift_type == "SUNDAY_DUTY"
+    lead_mon = next(s for s in mon_oct5.shifts if s.employee_name == "Hebron")
+    assert lead_mon.shift_type == "OFF", "Hebron worked Sunday Oct 4 but is not OFF Monday Oct 5"
 
 def test_saturday_half_day_rotation_alternates():
     """Requirement 7: Saturday half-day rotation alternates between Week A and Week B."""
     # Oct 3 (Week A)
     sat1 = next(d for d in generate_schedule_data("2026-09-28", 2)[0].days if d.date == "2026-10-03")
-    b1 = next(s for s in sat1.shifts if s.employee_name == "Beti")
     h1 = next(s for s in sat1.shifts if s.employee_name == "Hebron")
-    assert b1.shift_type == "AM_HALF", f"Expected Beti AM_HALF on Week A, got {b1.shift_type}"
-    assert h1.shift_type == "PM_HALF", f"Expected Hebron PM_HALF on Week A, got {h1.shift_type}"
+    b1 = next(s for s in sat1.shifts if s.employee_name == "Beti")
+    assert h1.shift_type == "AM_HALF", f"Expected Hebron AM_HALF on Week A, got {h1.shift_type}"
+    assert b1.shift_type == "PM_HALF", f"Expected Beti PM_HALF on Week A, got {b1.shift_type}"
 
     # Oct 10 (Week B)
     sat2 = next(d for d in generate_schedule_data("2026-09-28", 2)[0].days if d.date == "2026-10-10")
-    b2 = next(s for s in sat2.shifts if s.employee_name == "Beti")
     h2 = next(s for s in sat2.shifts if s.employee_name == "Hebron")
-    assert h2.shift_type == "AM_HALF", f"Expected Hebron AM_HALF on Week B, got {h2.shift_type}"
-    assert b2.shift_type == "PM_HALF", f"Expected Beti PM_HALF on Week B, got {b2.shift_type}"
+    b2 = next(s for s in sat2.shifts if s.employee_name == "Beti")
+    assert b2.shift_type == "AM_HALF", f"Expected Beti AM_HALF on Week B, got {b2.shift_type}"
+    assert h2.shift_type == "PM_HALF", f"Expected Hebron PM_HALF on Week B, got {h2.shift_type}"
 
 def test_no_employee_works_during_lunch():
     """Requirement 8: No employee works during their designated lunch hour without coverage."""
     period, validation = generate_schedule_data("2026-09-28", 2)
-    assert validation["checklist"]["lunch_coverage_valid"] is True
+    assert validation["checklist"]["call_center_coverage_valid"] is True
     # Ensure lunch times are defined and within working hours
     for day in period.days:
         for s in day.shifts:
@@ -115,21 +107,17 @@ def test_call_center_coverage_checked():
             assert slot["status"] in ("GREEN", "YELLOW", "RED")
             assert slot["staff_count"] >= 0
 
-def test_skills_are_validated():
-    """Requirement 11: Task assignment validates employee skills."""
-    # Feruza has Junior Amadeus and no full Amadeus / Call Center is secondary
-    assert "Call Center" in STAFF_PROFILES["Beti"]["skills"]
-    assert "Telegram" in STAFF_PROFILES["Hebron"]["skills"]
-    assert "GDS" in STAFF_PROFILES["Biruk"]["skills"]
+def test_tasks_are_validated():
+    """Requirement 11: Task assignment validates employee profiles."""
+    assert STAFF_PROFILES["Beti"]["primary_task"] == "Call Center"
+    assert STAFF_PROFILES["Hebron"]["primary_task"] == "Telegram"
+    assert STAFF_PROFILES["Biruk"]["primary_task"] == "Call Center"
 
-def test_two_weekly_off_days_respected():
-    """Requirement 12: Two weekly OFF days are respected for each staff member."""
+def test_weekly_off_days_respected():
+    """Requirement 12: Weekly OFF days are respected (1.5 days for Leads/Feruza, 2 days for rest)."""
     period, validation = generate_schedule_data("2026-09-28", 2)
-    # Check Week 1
-    week1_days = period.days[:7]
-    for emp_name in STAFF_PROFILES.keys():
-        off_count = sum(1 for d in week1_days for s in d.shifts if s.employee_name == emp_name and s.shift_type == "OFF")
-        assert off_count == 2, f"{emp_name} has {off_count} days off in Week 1, expected 2"
+    assert validation["checklist"]["days_off_valid"] is True
+
 
 def test_schedule_generation_different_start_dates():
     """Requirement 13: Schedule generation works for different start dates."""

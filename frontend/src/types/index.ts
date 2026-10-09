@@ -236,6 +236,20 @@ export interface SystemSetting {
   description?: string;
 }
 
+export interface SystemConstraint {
+  id: number;
+  title: string;
+  category: string;
+  description: string;
+  staff_names?: string;
+  rule_key?: string;
+  is_active: boolean;
+  is_system?: boolean;
+  config_json?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AuditLogItem {
   id: number;
   user_name: string;
