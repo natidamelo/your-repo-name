@@ -26,7 +26,8 @@ def generate_schedule(
     ephemeral_period, validation = generate_schedule_data(
         start_date_str=request.start_date,
         duration_weeks=request.duration_weeks,
-        employee_db_map=emp_map
+        employee_db_map=emp_map,
+        db=db
     )
 
     # Format ephemeral preview data
@@ -154,5 +155,25 @@ def validate_existing_schedule(
     if not period:
         raise HTTPException(status_code=404, detail="Schedule not found")
     
-    validation = validate_schedule_period(period)
+    validation = validate_schedule_period(period, db=db)
+    
+    # Sync conflicts to database so stored conflicts match live validation
+    try:
+        from app.models import ScheduleConflict
+        db.query(ScheduleConflict).filter(ScheduleConflict.schedule_period_id == id).delete()
+        for c in validation.get("conflicts", []):
+            sc = ScheduleConflict(
+                schedule_period_id=id,
+                date=c.get("date"),
+                employee_name=c.get("employee_name"),
+                severity=c.get("severity", "critical"),
+                error_type=c.get("error_type", "VALIDATION_ERROR"),
+                message=c.get("message", ""),
+                suggestion=c.get("suggestion", "")
+            )
+            db.add(sc)
+        db.commit()
+    except Exception as e:
+        print(f"Notice: syncing conflicts in validate_existing_schedule: {e}")
+
     return validation

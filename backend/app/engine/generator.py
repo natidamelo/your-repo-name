@@ -151,7 +151,7 @@ class EphemeralShift:
                 self.skills = []
         self.employee = MockEmp(employee_name)
 
-def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db_map: dict = None) -> Tuple[Any, Dict[str, Any]]:
+def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db_map: dict = None, db: Any = None) -> Tuple[Any, Dict[str, Any]]:
     """
     Generates an optimized schedule adhering strictly to:
     1. Hebron and Beti rotation leads (1.5 days off: 1 full day off + Saturday half-day).
@@ -365,5 +365,5 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
         days=days_data
     )
 
-    validation = validate_schedule_period(period)
+    validation = validate_schedule_period(period, db=db)
     return period, validation

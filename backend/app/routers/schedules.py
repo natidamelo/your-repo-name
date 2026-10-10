@@ -214,7 +214,7 @@ def update_shift(
 
     # Re-validate parent schedule period
     period = shift.schedule_day.schedule_period
-    validation = validate_schedule_period(period)
+    validation = validate_schedule_period(period, db=db)
 
     # Replace stored conflicts
     db.query(ScheduleConflict).filter(ScheduleConflict.schedule_period_id == period.id).delete()
@@ -244,7 +244,7 @@ def publish_schedule(
         raise HTTPException(status_code=404, detail="Schedule not found")
 
     # Run validation check
-    validation = validate_schedule_period(period)
+    validation = validate_schedule_period(period, db=db)
     if validation["critical_errors"] > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

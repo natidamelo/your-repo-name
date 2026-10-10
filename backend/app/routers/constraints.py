@@ -111,6 +111,29 @@ def ensure_default_constraints(db: Session):
             db.add(rec)
         db.commit()
 
+def revalidate_draft_schedules(db: Session):
+    try:
+        from app.models import SchedulePeriod, ScheduleConflict
+        from app.engine.validator import validate_schedule_period
+        draft_periods = db.query(SchedulePeriod).filter(SchedulePeriod.status == "draft").all()
+        for period in draft_periods:
+            val = validate_schedule_period(period, db=db)
+            db.query(ScheduleConflict).filter(ScheduleConflict.schedule_period_id == period.id).delete()
+            for c in val.get("conflicts", []):
+                sc = ScheduleConflict(
+                    schedule_period_id=period.id,
+                    date=c.get("date"),
+                    employee_name=c.get("employee_name"),
+                    severity=c.get("severity", "critical"),
+                    error_type=c.get("error_type", "VALIDATION_ERROR"),
+                    message=c.get("message", ""),
+                    suggestion=c.get("suggestion", "")
+                )
+                db.add(sc)
+        db.commit()
+    except Exception as e:
+        print(f"Notice: revalidate_draft_schedules: {e}")
+
 @router.get("/", response_model=List[SystemConstraintResponse])
 def get_constraints(
     active_only: bool = False,
@@ -162,6 +185,9 @@ def create_constraint(
     db.add(audit)
     db.commit()
 
+    # Automatically re-validate draft schedules with updated constraint rules
+    revalidate_draft_schedules(db)
+
     return constraint
 
 @router.put("/{id}", response_model=SystemConstraintResponse)
@@ -207,6 +233,9 @@ def update_constraint(
     db.add(audit)
     db.commit()
 
+    # Automatically re-validate draft schedules with updated constraint rules
+    revalidate_draft_schedules(db)
+
     return constraint
 
 @router.patch("/{id}/toggle", response_model=SystemConstraintResponse)
@@ -237,6 +266,9 @@ def toggle_constraint(
     db.add(audit)
     db.commit()
 
+    # Automatically re-validate draft schedules with updated constraint rules
+    revalidate_draft_schedules(db)
+
     return constraint
 
 @router.delete("/{id}")
@@ -265,6 +297,9 @@ def delete_constraint(
     )
     db.add(audit)
     db.commit()
+
+    # Automatically re-validate draft schedules with updated constraint rules
+    revalidate_draft_schedules(db)
 
     return {"message": "Constraint deleted successfully", "id": id}
 
@@ -298,5 +333,8 @@ def reset_constraints_to_defaults(
     )
     db.add(audit)
     db.commit()
+
+    # Automatically re-validate draft schedules with updated constraint rules
+    revalidate_draft_schedules(db)
 
     return db.query(SystemConstraint).order_by(SystemConstraint.id).all()
