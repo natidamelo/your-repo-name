@@ -57,8 +57,9 @@ export async function apiRequest<T = any>(
 
   if (!response.ok) {
     let errorDetail = 'API request failed';
+    let errJson: any = null;
     try {
-      const errJson = await response.json();
+      errJson = await response.json();
       if (typeof errJson.detail === 'string') {
         errorDetail = errJson.detail;
       } else if (errJson.detail && typeof errJson.detail === 'object') {
@@ -69,7 +70,12 @@ export async function apiRequest<T = any>(
     } catch {
       errorDetail = `HTTP ${response.status} ${response.statusText}`;
     }
-    throw new Error(errorDetail);
+    const err: any = new Error(errorDetail);
+    if (errJson) {
+      err.data = errJson;
+      err.detail = errJson.detail;
+    }
+    throw err;
   }
 
   return response.json();

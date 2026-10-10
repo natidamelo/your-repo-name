@@ -80,7 +80,7 @@ const AppContent: React.FC = () => {
       activeScheduleName={activeSchedule ? activeSchedule.name : 'Sep 28 – Oct 11, 2026'}
       activeScheduleId={activeSchedule ? activeSchedule.id : 1}
       dateRange={currentTab === 'calendar' ? calendarDateRange : undefined}
-      conflictsCount={0}
+      conflictsCount={activeSchedule?.conflicts ? activeSchedule.conflicts.length : 0}
       onRefresh={() => setRefreshKey(prev => prev + 1)}
       onPrint={() => setCurrentTab('print')}
     >

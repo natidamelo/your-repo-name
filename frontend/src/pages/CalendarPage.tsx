@@ -28,6 +28,8 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
+  ShieldAlert,
+  AlertOctagon,
 } from 'lucide-react';
 import {
   getSchedulesApi,
@@ -37,7 +39,9 @@ import {
   publishScheduleApi,
   unpublishScheduleApi,
   deleteScheduleApi,
+  validateScheduleApi,
 } from '../api/client';
+import { ConflictInspectorModal, ConflictItem } from '../components/schedule/ConflictInspectorModal';
 import { SchedulePeriod, ScheduleDay, ShiftAssignment } from '../types';
 import { ShiftEditModal } from '../components/calendar/ShiftEditModal';
 import { ShiftKeyLegendModal } from '../components/schedule/ShiftKeyLegendModal';
@@ -102,6 +106,55 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   const [selectedDateStr, setSelectedDateStr] = useState<string>('');
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 
+  // Schedule Validation & Conflicts State
+  const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
+
+  const handleValidateSchedule = async (schedId?: number) => {
+    const targetId = schedId || activeScheduleId;
+    if (!targetId) return [];
+    setIsValidating(true);
+    try {
+      const val = await validateScheduleApi(targetId);
+      const confList: ConflictItem[] = val?.conflicts || [];
+      setConflicts(confList);
+      return confList;
+    } catch (err) {
+      console.error('Validation check failed:', err);
+      return [];
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleSelectConflict = (c: ConflictItem) => {
+    setIsConflictModalOpen(false);
+    if (!c.date) return;
+
+    // Switch view to custom day
+    setCustomStartDate(c.date);
+    setCustomEndDate(c.date);
+    setViewMode('custom');
+
+    // If an employee is targeted, open shift editor for them
+    if (c.employee_name && schedule?.days) {
+      const dayObj = schedule.days.find(d => d.date === c.date);
+      if (dayObj && dayObj.shifts) {
+        const normTarget = c.employee_name.toLowerCase();
+        const matchedShift = dayObj.shifts.find(s => {
+          const empName = ((s as any).employee_name || (s as any).employee?.first_name || '').toLowerCase();
+          return empName.includes(normTarget) || normTarget.includes(empName);
+        });
+        if (matchedShift) {
+          setSelectedShift(matchedShift);
+          setSelectedDateStr(c.date);
+          setIsEditModalOpen(true);
+        }
+      }
+    }
+  };
+
   // Schedule Status Management (Publish / Draft / Delete)
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [publishFeedback, setPublishFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -127,12 +180,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       setTimeout(() => setPublishFeedback(null), 5000);
     } catch (err: any) {
       console.error('Failed to publish schedule:', err);
-      const msg = err.message || 'Failed to publish schedule. Please resolve any critical conflicts first.';
+      if (err.detail?.conflicts && err.detail.conflicts.length > 0) {
+        setConflicts(err.detail.conflicts);
+        setIsConflictModalOpen(true);
+      } else {
+        try {
+          const confList = await handleValidateSchedule(activeScheduleId);
+          if (confList && confList.length > 0) {
+            setIsConflictModalOpen(true);
+          }
+        } catch {}
+      }
+      const msg = err.message || 'Cannot publish schedule: Critical conflicts found.';
       setPublishFeedback({
         type: 'error',
         message: msg
       });
-      alert(msg);
     } finally {
       setIsPublishing(false);
     }
@@ -211,7 +274,18 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
     try {
       const data = await getScheduleApi(id);
       setSchedule(data);
-      onScheduleChange?.(data);
+
+      // Re-validate in real-time to get accurate current conflicts
+      try {
+        const val = await validateScheduleApi(id);
+        const liveConflicts: ConflictItem[] = val?.conflicts || [];
+        setConflicts(liveConflicts);
+        onScheduleChange?.({ ...data, conflicts: liveConflicts });
+      } catch {
+        const fallbackConflicts = data.conflicts || [];
+        setConflicts(fallbackConflicts);
+        onScheduleChange?.(data);
+      }
     } catch (err) {
       console.error('Failed to fetch schedule details:', err);
     } finally {
@@ -686,6 +760,35 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 {filteredStaffNames.length}{filteredStaffNames.length !== allStaffNames.length ? ` / ${allStaffNames.length}` : ''} staff
               </span>
 
+              {/* Conflict Indicator Button */}
+              {activeScheduleId && (
+                <button
+                  type="button"
+                  onClick={() => setIsConflictModalOpen(true)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition cursor-pointer shadow-2xs ${
+                    conflicts.some(c => c.severity === 'critical')
+                      ? 'bg-destructive/15 border-destructive/35 text-destructive hover:bg-destructive/25 animate-pulse'
+                      : conflicts.length > 0
+                      ? 'bg-amber-500/15 border-amber-500/35 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25'
+                      : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
+                  }`}
+                  title="Click to easily inspect schedule conflicts, broken constraints, and solutions"
+                >
+                  {conflicts.some(c => c.severity === 'critical') ? (
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                  ) : conflicts.length > 0 ? (
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>
+                    {conflicts.length === 0
+                      ? '0 Issues (Verified)'
+                      : `${conflicts.length} ${conflicts.length === 1 ? 'Conflict' : 'Conflicts'}`}
+                  </span>
+                </button>
+              )}
+
               {/* Publish / Draft / Delete controls for Admin & Manager */}
               {(role === 'admin' || role === 'manager') && activeScheduleId && (
                 <div className="flex items-center gap-1.5 ml-1">
@@ -733,17 +836,29 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             </div>
 
             {publishFeedback && (
-              <div className={`text-xs px-2.5 py-1 rounded-md flex items-center gap-1.5 mt-1.5 ${
+              <div className={`text-xs px-3 py-2 rounded-lg flex items-center justify-between gap-3 mt-1.5 shadow-2xs ${
                 publishFeedback.type === 'success'
-                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
                   : 'bg-destructive/15 border border-destructive/30 text-destructive'
               }`}>
-                {publishFeedback.type === 'success' ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <div className="flex items-center gap-2">
+                  {publishFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <AlertOctagon className="w-4 h-4 shrink-0 text-destructive" />
+                  )}
+                  <span className="font-semibold">{publishFeedback.message}</span>
+                </div>
+                {publishFeedback.type === 'error' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsConflictModalOpen(true)}
+                    className="shrink-0 px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground font-bold hover:bg-destructive/90 transition cursor-pointer flex items-center gap-1 shadow-2xs text-[11px]"
+                  >
+                    <span>Inspect Conflicts ({conflicts.length})</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 )}
-                <span>{publishFeedback.message}</span>
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -1491,12 +1606,15 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                       const isSun = dObj.getDay() === 0;
                       const isSat = dObj.getDay() === 6;
                       const isToday = day.date === TODAY_STR;
+                      const dayConflicts = conflicts.filter(c => c.date === day.date);
                       return (
                         <th
                           key={day.date}
                           onClick={() => onSelectDateForDailyView(day.date)}
-                          className={`py-2.5 px-2 text-center border-r border-border min-w-[145px] cursor-pointer hover:bg-accent/50 transition ${
-                            isToday
+                          className={`py-2 px-2 text-center border-r border-border min-w-[145px] cursor-pointer hover:bg-accent/50 transition relative ${
+                            dayConflicts.length > 0
+                              ? 'bg-rose-500/10 dark:bg-rose-950/20 ring-1 ring-inset ring-rose-500/40'
+                              : isToday
                               ? 'bg-primary/10 dark:bg-primary/20 ring-2 ring-inset ring-primary/40'
                               : isSun
                               ? 'bg-indigo-100/80 dark:bg-indigo-950/40'
@@ -1504,20 +1622,34 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                               ? 'bg-amber-100/80 dark:bg-amber-950/30'
                               : 'bg-secondary'
                           }`}
-                          title="Click to view daily assignments"
+                          title={dayConflicts.length > 0 ? `${dayConflicts.length} conflict(s) on ${day.date}` : 'Click to view daily assignments'}
                         >
-                          {isToday && (
+                          {dayConflicts.length > 0 ? (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsConflictModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold uppercase tracking-wider mb-0.5 shadow-2xs hover:scale-105 transition"
+                            >
+                              <ShieldAlert className="w-2.5 h-2.5" />
+                              <span>{dayConflicts.length} {dayConflicts.length === 1 ? 'Issue' : 'Issues'}</span>
+                            </span>
+                          ) : isToday ? (
                             <span className="block text-[9px] font-bold text-primary uppercase tracking-widest mb-0.5">Today</span>
-                          )}
+                          ) : null}
                           <span className={`block text-[11px] font-bold ${
-                            isToday ? 'text-primary'
+                            dayConflicts.length > 0 ? 'text-destructive font-black'
+                              : isToday ? 'text-primary'
                               : isSun ? 'text-indigo-700 dark:text-indigo-400'
                               : isSat ? 'text-amber-700 dark:text-amber-400'
                               : 'text-muted-foreground'
                           }`}>
                             {dObj.toLocaleDateString('en-US', { weekday: 'short' })}
                           </span>
-                          <span className={`block text-xs font-bold mt-0.5 ${isToday ? 'text-primary' : 'text-foreground'}`}>
+                          <span className={`block text-xs font-bold mt-0.5 ${
+                            dayConflicts.length > 0 ? 'text-destructive' : isToday ? 'text-primary' : 'text-foreground'
+                          }`}>
                             {dObj.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
                           </span>
                         </th>
@@ -1575,12 +1707,23 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             shiftFilter === 'OFF' ? (!shift || shift.shift_type === 'OFF') :
                             shiftFilter === 'SUNDAY_DUTY' ? (shift && shift.shift_type === 'SUNDAY_DUTY') : true;
 
+                          // Check if this specific staff shift has an active conflict
+                          const cellConflict = conflicts.find(c => {
+                            if (c.date && c.date !== day.date) return false;
+                            if (!c.employee_name) return false;
+                            const cName = c.employee_name.toLowerCase();
+                            const n = name.toLowerCase();
+                            return cName.includes(n) || n.includes(cName) || (cName.includes('squad') && isSun);
+                          });
+
                           return (
                             <td
                               key={day.date}
                               onClick={() => shift && handleShiftClick(shift, day.date)}
-                              className={`py-1.5 px-1.5 border-r border-border/70 transition ${
-                                isToday
+                              className={`py-1.5 px-1.5 border-r border-border/70 transition relative ${
+                                cellConflict
+                                  ? 'bg-rose-500/10 dark:bg-rose-950/20 ring-1 ring-inset ring-rose-500/40'
+                                  : isToday
                                   ? 'bg-primary/[0.03] dark:bg-primary/[0.06]'
                                   : isSun
                                   ? 'bg-indigo-50/50 dark:bg-indigo-950/10'
@@ -1592,8 +1735,23 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                                   ? 'cursor-pointer hover:brightness-110 active:scale-[0.98]'
                                   : ''
                               }`}
+                              title={cellConflict ? `Conflict: ${cellConflict.message}` : undefined}
                             >
-                              {getShiftBadge(shift)}
+                              <div className="relative">
+                                {cellConflict && (
+                                  <span
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setIsConflictModalOpen(true);
+                                    }}
+                                    className="absolute -top-1 -right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-white text-[9px] font-black shadow-xs animate-pulse hover:scale-110 transition cursor-pointer"
+                                    title={cellConflict.message}
+                                  >
+                                    !
+                                  </span>
+                                )}
+                                {getShiftBadge(shift)}
+                              </div>
                             </td>
                           );
                         })}
@@ -1649,6 +1807,17 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       <ShiftKeyLegendModal
         isOpen={isShiftKeyModalOpen}
         onClose={() => setIsShiftKeyModalOpen(false)}
+      />
+
+      {/* Schedule Conflict & Rules Inspector Modal */}
+      <ConflictInspectorModal
+        isOpen={isConflictModalOpen}
+        onClose={() => setIsConflictModalOpen(false)}
+        conflicts={conflicts}
+        scheduleName={schedule ? `${schedule.name} (${schedule.start_date} – ${schedule.end_date})` : undefined}
+        onSelectConflict={handleSelectConflict}
+        onRefreshValidation={() => handleValidateSchedule(activeScheduleId || undefined)}
+        isValidating={isValidating}
       />
     </div>
   );
