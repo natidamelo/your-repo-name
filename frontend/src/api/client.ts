@@ -59,7 +59,13 @@ export async function apiRequest<T = any>(
     let errorDetail = 'API request failed';
     try {
       const errJson = await response.json();
-      errorDetail = errJson.detail || JSON.stringify(errJson);
+      if (typeof errJson.detail === 'string') {
+        errorDetail = errJson.detail;
+      } else if (errJson.detail && typeof errJson.detail === 'object') {
+        errorDetail = errJson.detail.message || JSON.stringify(errJson.detail);
+      } else {
+        errorDetail = JSON.stringify(errJson);
+      }
     } catch {
       errorDetail = `HTTP ${response.status} ${response.statusText}`;
     }
@@ -182,6 +188,13 @@ export async function updateShiftApi(shiftId: number, data: any) {
 export async function publishScheduleApi(scheduleId: number) {
   return apiRequest(`/schedules/${scheduleId}/publish`, {
     method: 'POST'
+  });
+}
+
+export async function unpublishScheduleApi(scheduleId: number) {
+  return apiRequest(`/schedules/${scheduleId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'draft' })
   });
 }
 

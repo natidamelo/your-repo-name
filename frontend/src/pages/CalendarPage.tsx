@@ -22,8 +22,22 @@ import {
   EyeOff,
   Coffee,
   Key,
+  Send,
+  RotateCcw,
+  Trash2,
+  Loader2,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
-import { getSchedulesApi, getScheduleApi, getExcelExportUrl, exportScheduleExcel } from '../api/client';
+import {
+  getSchedulesApi,
+  getScheduleApi,
+  getExcelExportUrl,
+  exportScheduleExcel,
+  publishScheduleApi,
+  unpublishScheduleApi,
+  deleteScheduleApi,
+} from '../api/client';
 import { SchedulePeriod, ScheduleDay, ShiftAssignment } from '../types';
 import { ShiftEditModal } from '../components/calendar/ShiftEditModal';
 import { ShiftKeyLegendModal } from '../components/schedule/ShiftKeyLegendModal';
@@ -87,6 +101,97 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   const [selectedShift, setSelectedShift] = useState<ShiftAssignment | null>(null);
   const [selectedDateStr, setSelectedDateStr] = useState<string>('');
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+
+  // Schedule Status Management (Publish / Draft / Delete)
+  const [isPublishing, setIsPublishing] = useState<boolean>(false);
+  const [publishFeedback, setPublishFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handlePublishSchedule = async () => {
+    if (!activeScheduleId) return;
+    const schedName = schedule?.name || 'this schedule';
+    const confirmed = window.confirm(
+      `Are you sure you want to publish "${schedName}"?\n\nThis will mark it as the official published roster.`
+    );
+    if (!confirmed) return;
+
+    setIsPublishing(true);
+    setPublishFeedback(null);
+    try {
+      const res = await publishScheduleApi(activeScheduleId);
+      await fetchScheduleList();
+      await fetchScheduleDetail(activeScheduleId);
+      setPublishFeedback({
+        type: 'success',
+        message: res.message || `Schedule "${schedName}" published successfully!`
+      });
+      setTimeout(() => setPublishFeedback(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to publish schedule:', err);
+      const msg = err.message || 'Failed to publish schedule. Please resolve any critical conflicts first.';
+      setPublishFeedback({
+        type: 'error',
+        message: msg
+      });
+      alert(msg);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleUnpublishSchedule = async () => {
+    if (!activeScheduleId) return;
+    const schedName = schedule?.name || 'this schedule';
+    const confirmed = window.confirm(
+      `Revert "${schedName}" to Draft?\n\nIt will no longer be marked as the published schedule until re-published.`
+    );
+    if (!confirmed) return;
+
+    setIsPublishing(true);
+    setPublishFeedback(null);
+    try {
+      await unpublishScheduleApi(activeScheduleId);
+      await fetchScheduleList();
+      await fetchScheduleDetail(activeScheduleId);
+      setPublishFeedback({
+        type: 'success',
+        message: `Schedule "${schedName}" reverted to draft.`
+      });
+      setTimeout(() => setPublishFeedback(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to revert schedule:', err);
+      alert(err.message || 'Failed to revert schedule to draft.');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleDeleteSchedule = async () => {
+    if (!activeScheduleId) return;
+    const schedName = schedule?.name || 'this schedule';
+    const confirmed = window.confirm(
+      `Are you sure you want to PERMANENTLY DELETE schedule "${schedName}"?\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsPublishing(true);
+    try {
+      await deleteScheduleApi(activeScheduleId);
+      alert(`Schedule "${schedName}" deleted successfully.`);
+      const remainingList = schedulesList.filter(s => s.id !== activeScheduleId);
+      setSchedulesList(remainingList);
+      if (remainingList.length > 0) {
+        setActiveScheduleId(remainingList[0].id);
+      } else {
+        setActiveScheduleId(null);
+        setSchedule(null);
+      }
+    } catch (err: any) {
+      console.error('Failed to delete schedule:', err);
+      alert(err.message || 'Failed to delete schedule.');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   const fetchScheduleList = async () => {
     try {
@@ -580,7 +685,67 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 <Users className="w-3 h-3" />
                 {filteredStaffNames.length}{filteredStaffNames.length !== allStaffNames.length ? ` / ${allStaffNames.length}` : ''} staff
               </span>
+
+              {/* Publish / Draft / Delete controls for Admin & Manager */}
+              {(role === 'admin' || role === 'manager') && activeScheduleId && (
+                <div className="flex items-center gap-1.5 ml-1">
+                  {schedule?.status !== 'published' ? (
+                    <button
+                      type="button"
+                      onClick={handlePublishSchedule}
+                      disabled={isPublishing}
+                      title="Publish this draft schedule to make it the active official roster"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white shadow-xs transition disabled:opacity-50 cursor-pointer"
+                    >
+                      {isPublishing ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Send className="w-3.5 h-3.5" />
+                      )}
+                      <span>{isPublishing ? 'Publishing...' : 'Publish Schedule'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleUnpublishSchedule}
+                      disabled={isPublishing}
+                      title="Revert back to draft status to make changes"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Revert to Draft</span>
+                    </button>
+                  )}
+
+                  {role === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteSchedule}
+                      disabled={isPublishing}
+                      title="Permanently delete this schedule"
+                      className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
+
+            {publishFeedback && (
+              <div className={`text-xs px-2.5 py-1 rounded-md flex items-center gap-1.5 mt-1.5 ${
+                publishFeedback.type === 'success'
+                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-destructive/15 border border-destructive/30 text-destructive'
+              }`}>
+                {publishFeedback.type === 'success' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                )}
+                <span>{publishFeedback.message}</span>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground mt-0.5">
               {viewMode === 'custom' && displayedDays.length > 0 ? (
                 <span className="text-primary font-semibold">
