@@ -79,7 +79,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
       setEndTime(shift.end_time      || '17:00');
       setLunchStart(shift.lunch_start || '12:00');
       setLunchEnd(shift.lunch_end    || '13:00');
-      setTasks(buildTasksFromShift(shift));
+      setTasks(shift.shift_type === 'OFF' ? [] : buildTasksFromShift(shift));
       setNotes(shift.notes || '');
       setReason('Manager schedule adjustment');
       setCustomTask('');
@@ -124,18 +124,21 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
     if (!reason.trim()) { setSaveError('Please enter a reason for the change.'); return; }
     setIsSaving(true);
     try {
-      const finalTasks = tasks.length > 0 ? tasks : [{ id: uid(), name: 'Call Center', start: startTime, end: endTime, isBackup: false }];
+      const isOff = shiftType === 'OFF';
+      const finalTasks = isOff
+        ? []
+        : (tasks.length > 0 ? tasks : [{ id: uid(), name: 'Call Center', start: startTime, end: endTime, isBackup: false }]);
       await updateShiftApi(shift.id, {
         shift_type:     shiftType,
-        start_time:     shiftType === 'OFF' ? null : startTime,
-        end_time:       shiftType === 'OFF' ? null : endTime,
-        lunch_start:    shiftType === 'OFF' ? null : lunchStart,
-        lunch_end:      shiftType === 'OFF' ? null : lunchEnd,
-        primary_task:   finalTasks[0]?.name ?? 'Call Center',
-        secondary_task: finalTasks[1]?.name ?? null,
-        assigned_tasks: finalTasks.map(t => t.name),
-        task_times:     finalTasks.map(t => ({ task_name: t.name, start_time: t.start, end_time: t.end, is_backup: t.isBackup })),
-        notes,
+        start_time:     isOff ? null : startTime,
+        end_time:       isOff ? null : endTime,
+        lunch_start:    isOff ? null : lunchStart,
+        lunch_end:      isOff ? null : lunchEnd,
+        primary_task:   isOff ? null : (finalTasks[0]?.name ?? null),
+        secondary_task: isOff ? null : (finalTasks[1]?.name ?? null),
+        assigned_tasks: isOff ? [] : finalTasks.map(t => t.name),
+        task_times:     isOff ? [] : finalTasks.map(t => ({ task_name: t.name, start_time: t.start, end_time: t.end, is_backup: t.isBackup })),
+        notes:          isOff ? (notes || 'DO') : notes,
         reason,
       });
       setSaveOk(true);
@@ -206,6 +209,8 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
                         setEndTime(p.endTime);
                         if (p.defaultLunchStart) setLunchStart(p.defaultLunchStart);
                         if (p.defaultLunchEnd) setLunchEnd(p.defaultLunchEnd);
+                      } else {
+                        setTasks([]);
                       }
                     }}
                     className={`p-2.5 rounded-xl text-left border transition text-xs flex flex-col justify-between cursor-pointer ${
@@ -232,7 +237,10 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
             <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-2">Manual Shift Status</label>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
               {shiftOpts.map(o => (
-                <button key={o.type} type="button" onClick={() => setShiftType(o.type as ShiftType)}
+                <button key={o.type} type="button" onClick={() => {
+                  setShiftType(o.type as ShiftType);
+                  if (o.type === 'OFF') setTasks([]);
+                }}
                   className={`h-9 px-2 rounded-lg text-xs font-medium border text-center transition ${
                     shiftType === o.type ? `${o.cls} ring-1 ring-ring font-bold` : 'bg-background text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground'
                   }`}>

@@ -541,7 +541,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   }, [searchedStaffNames, shiftFilter, displayedDays, staffRowsMap]);
 
   const getAssignedTasks = (shift?: ShiftAssignment): string[] => {
-    if (!shift) return [];
+    if (!shift || shift.shift_type === 'OFF') return [];
     if (shift.assigned_tasks && shift.assigned_tasks.length > 0) {
       return shift.assigned_tasks;
     }
@@ -1481,7 +1481,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   const isOff = !shift || shift.shift_type === 'OFF';
                   const isLeave = guzoInfo?.key === 'A-L';
                   const isSunDuty = shift?.shift_type === 'SUNDAY_DUTY';
-                  const taskList = shift ? getAssignedTasks(shift) : [];
+                  const taskList = (!shift || isOff || isLeave) ? [] : getAssignedTasks(shift);
 
                   let cardBg = 'bg-card border-border';
                   if (isLeave) cardBg = 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800/40';
@@ -1536,8 +1536,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mt-0.5">Annual Leave</p>
                           )}
 
-                          {/* Task rows — with times */}
-                          {taskList.length > 0 && (
+                          {/* Task rows — with times (only for working shifts) */}
+                          {!isOff && !isLeave && taskList.length > 0 && (
                             <div className="flex flex-col gap-1 mt-2">
                               {shift?.tasks && shift.tasks.length > 0 ? (
                                 shift.tasks.map((taskRecord, idx) => {

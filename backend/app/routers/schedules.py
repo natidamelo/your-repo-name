@@ -23,21 +23,22 @@ def serialize_period(period: SchedulePeriod) -> dict:
             
             # Extract assigned tasks list (preserve all, including backup duplicates)
             task_names = []
-            if s.tasks:
-                for t in s.tasks:
-                    if t.task_name:
-                        task_names.append(t.task_name)
-            if not task_names:
-                if s.primary_task:
-                    for pt in s.primary_task.split(","):
-                        pt_c = pt.strip()
-                        if pt_c and pt_c not in task_names:
-                            task_names.append(pt_c)
-                if s.secondary_task:
-                    for st in s.secondary_task.split(","):
-                        st_c = st.strip()
-                        if st_c and st_c not in task_names:
-                            task_names.append(st_c)
+            if s.shift_type != "OFF":
+                if s.tasks:
+                    for t in s.tasks:
+                        if t.task_name:
+                            task_names.append(t.task_name)
+                if not task_names:
+                    if s.primary_task:
+                        for pt in s.primary_task.split(","):
+                            pt_c = pt.strip()
+                            if pt_c and pt_c not in task_names:
+                                task_names.append(pt_c)
+                    if s.secondary_task:
+                        for st in s.secondary_task.split(","):
+                            st_c = st.strip()
+                            if st_c and st_c not in task_names:
+                                task_names.append(st_c)
 
             emp_skills = []
             if s.employee and s.employee.skills:
@@ -51,16 +52,16 @@ def serialize_period(period: SchedulePeriod) -> dict:
                 "employee_name": emp_name,
                 "employee_position": s.employee.position if s.employee else None,
                 "shift_type": s.shift_type,
-                "start_time": s.start_time,
-                "end_time": s.end_time,
-                "lunch_start": s.lunch_start,
-                "lunch_end": s.lunch_end,
-                "primary_task": s.primary_task,
-                "secondary_task": s.secondary_task,
+                "start_time": None if s.shift_type == "OFF" else s.start_time,
+                "end_time": None if s.shift_type == "OFF" else s.end_time,
+                "lunch_start": None if s.shift_type == "OFF" else s.lunch_start,
+                "lunch_end": None if s.shift_type == "OFF" else s.lunch_end,
+                "primary_task": None if s.shift_type == "OFF" else s.primary_task,
+                "secondary_task": None if s.shift_type == "OFF" else s.secondary_task,
                 "assigned_tasks": task_names,
                 "skills": emp_skills,
                 "notes": s.notes,
-                "tasks": [
+                "tasks": [] if s.shift_type == "OFF" else [
                     {
                         "id": t.id,
                         "task_name": t.task_name,
@@ -144,55 +145,65 @@ def update_shift(
     
     # Apply changes
     shift.shift_type = update_in.shift_type
-    shift.start_time = update_in.start_time
-    shift.end_time = update_in.end_time
-    shift.lunch_start = update_in.lunch_start
-    shift.lunch_end = update_in.lunch_end
     if update_in.notes is not None:
         shift.notes = update_in.notes
 
-    if update_in.task_times is not None and len(update_in.task_times) > 0:
-        # New path: frontend sends full task_times list (supports duplicates + is_backup)
-        # Derive assigned_tasks (unique names for primary/secondary fields)
-        seen_names: list = []
-        for tt in update_in.task_times:
-            if tt.task_name not in seen_names:
-                seen_names.append(tt.task_name)
-        shift.primary_task = seen_names[0] if len(seen_names) > 0 else None
-        shift.secondary_task = seen_names[1] if len(seen_names) > 1 else None
-
-        # Replace ALL TaskAssignment records using task_times directly
+    if update_in.shift_type == "OFF":
+        shift.start_time = None
+        shift.end_time = None
+        shift.lunch_start = None
+        shift.lunch_end = None
+        shift.primary_task = None
+        shift.secondary_task = None
         db.query(TaskAssignment).filter(TaskAssignment.shift_assignment_id == shift.id).delete()
-        for tt in update_in.task_times:
-            db.add(TaskAssignment(
-                shift_assignment_id=shift.id,
-                task_name=tt.task_name,
-                start_time=tt.start_time,
-                end_time=tt.end_time,
-                is_backup=tt.is_backup
-            ))
-
-    elif update_in.assigned_tasks is not None:
-        # Fallback path: just task names without times
-        clean_tasks = [t.strip() for t in update_in.assigned_tasks if t and t.strip()]
-        shift.primary_task = clean_tasks[0] if len(clean_tasks) > 0 else None
-        shift.secondary_task = clean_tasks[1] if len(clean_tasks) > 1 else None
-
-        db.query(TaskAssignment).filter(TaskAssignment.shift_assignment_id == shift.id).delete()
-        for t_name in clean_tasks:
-            db.add(TaskAssignment(
-                shift_assignment_id=shift.id,
-                task_name=t_name,
-                start_time=shift.start_time or "08:00",
-                end_time=shift.end_time or "17:00",
-                is_backup=False
-            ))
-
     else:
-        if update_in.primary_task is not None:
-            shift.primary_task = update_in.primary_task
-        if update_in.secondary_task is not None:
-            shift.secondary_task = update_in.secondary_task
+        shift.start_time = update_in.start_time
+        shift.end_time = update_in.end_time
+        shift.lunch_start = update_in.lunch_start
+        shift.lunch_end = update_in.lunch_end
+
+        if update_in.task_times is not None and len(update_in.task_times) > 0:
+            # New path: frontend sends full task_times list (supports duplicates + is_backup)
+            # Derive assigned_tasks (unique names for primary/secondary fields)
+            seen_names: list = []
+            for tt in update_in.task_times:
+                if tt.task_name not in seen_names:
+                    seen_names.append(tt.task_name)
+            shift.primary_task = seen_names[0] if len(seen_names) > 0 else None
+            shift.secondary_task = seen_names[1] if len(seen_names) > 1 else None
+
+            # Replace ALL TaskAssignment records using task_times directly
+            db.query(TaskAssignment).filter(TaskAssignment.shift_assignment_id == shift.id).delete()
+            for tt in update_in.task_times:
+                db.add(TaskAssignment(
+                    shift_assignment_id=shift.id,
+                    task_name=tt.task_name,
+                    start_time=tt.start_time,
+                    end_time=tt.end_time,
+                    is_backup=tt.is_backup
+                ))
+
+        elif update_in.assigned_tasks is not None:
+            # Fallback path: just task names without times
+            clean_tasks = [t.strip() for t in update_in.assigned_tasks if t and t.strip()]
+            shift.primary_task = clean_tasks[0] if len(clean_tasks) > 0 else None
+            shift.secondary_task = clean_tasks[1] if len(clean_tasks) > 1 else None
+
+            db.query(TaskAssignment).filter(TaskAssignment.shift_assignment_id == shift.id).delete()
+            for t_name in clean_tasks:
+                db.add(TaskAssignment(
+                    shift_assignment_id=shift.id,
+                    task_name=t_name,
+                    start_time=shift.start_time or "08:00",
+                    end_time=shift.end_time or "17:00",
+                    is_backup=False
+                ))
+
+        else:
+            if update_in.primary_task is not None:
+                shift.primary_task = update_in.primary_task
+            if update_in.secondary_task is not None:
+                shift.secondary_task = update_in.secondary_task
 
     new_summary = f"{shift.shift_type} ({shift.start_time or ''}-{shift.end_time or ''})"
 
