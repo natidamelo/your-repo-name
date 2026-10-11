@@ -285,12 +285,23 @@ def publish_schedule(
 def delete_schedule(
     id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"]))
+    current_user: User = Depends(require_role(["admin", "manager"]))
 ):
     period = db.query(SchedulePeriod).filter(SchedulePeriod.id == id).first()
     if not period:
         raise HTTPException(status_code=404, detail="Schedule not found")
     name = period.name
+    audit = AuditLog(
+        user_id=current_user.id,
+        user_name=current_user.username,
+        action="DELETE_SCHEDULE",
+        entity_type="SchedulePeriod",
+        entity_id=period.id,
+        old_value=f"Deleted schedule: {name} ({period.start_date} to {period.end_date})",
+        new_value=None,
+        reason="Manual schedule deletion"
+    )
+    db.add(audit)
     db.delete(period)
     db.commit()
     return {"message": f"Schedule '{name}' deleted successfully"}

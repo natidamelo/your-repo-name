@@ -820,15 +820,16 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     </button>
                   )}
 
-                  {role === 'admin' && (
+                  {(role === 'admin' || role === 'manager') && (
                     <button
                       type="button"
                       onClick={handleDeleteSchedule}
                       disabled={isPublishing}
                       title="Permanently delete this schedule"
-                      className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md text-destructive hover:bg-destructive/10 border border-destructive/20 hover:border-destructive/40 transition cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 h-3" />
+                      <span>Delete</span>
                     </button>
                   )}
                 </div>

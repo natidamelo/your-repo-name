@@ -18,10 +18,12 @@ import {
   Sun,
   Layers,
   Radio,
-  Key
+  Key,
+  Trash2
 } from 'lucide-react';
-import { getDashboardSummaryApi } from '../api/client';
+import { getDashboardSummaryApi, deleteScheduleApi } from '../api/client';
 import { DashboardSummary } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface DashboardPageProps {
   onNavigateToCalendar: () => void;
@@ -50,8 +52,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onNavigateToCalendar,
   onOpenGenerator
 }) => {
+  const { role } = useAuth();
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | undefined>(undefined);
   const [staffTab, setStaffTab] = useState<'working' | 'off'>('working');
@@ -88,6 +92,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     setSelectedScheduleId(sId);
     setSelectedDate(''); // Reset to schedule's default first day
     fetchDashboard(undefined, sId);
+  };
+
+  const handleDeleteSchedule = async () => {
+    const schedId = selectedScheduleId || data?.schedule_id;
+    if (!schedId) return;
+    const schedName = data?.all_schedules?.find(s => s.id === schedId)?.name || data?.schedule_name || 'this schedule';
+    const confirmed = window.confirm(
+      `Are you sure you want to PERMANENTLY DELETE schedule "${schedName}"?\n\nThis will remove all associated shifts and schedule days. This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteScheduleApi(schedId);
+      alert(`Schedule "${schedName}" deleted successfully.`);
+      setSelectedScheduleId(undefined);
+      fetchDashboard(selectedDate || undefined, undefined);
+    } catch (err: any) {
+      console.error('Failed to delete schedule:', err);
+      alert(err.message || 'Failed to delete schedule.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading && !data) {
@@ -132,6 +159,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </select>
                   <ChevronDown className="w-3 h-3 text-muted-foreground absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+              )}
+              {(role === 'admin' || role === 'manager') && (selectedScheduleId || data.schedule_id) && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSchedule}
+                  disabled={isDeleting}
+                  title="Permanently delete this selected schedule"
+                  className="h-6 px-2 rounded-md text-destructive hover:bg-destructive/10 border border-destructive/25 hover:border-destructive/50 transition cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold ml-1 shadow-2xs"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Delete Schedule</span>
+                </button>
               )}
             </div>
 
