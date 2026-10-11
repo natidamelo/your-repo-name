@@ -33,28 +33,44 @@ def parse_staff_set(staff_str: Optional[str]) -> Set[str]:
 
 def parse_days_off_target(desc: str) -> Optional[float]:
     """
-    Parses how many days off are targeted from description.
-    e.g. '1.5 days off' -> 1.5
-         '0 full days off' / 'no day off' -> 0.0
-         '1 full day off' / '1 day off' -> 1.0
-         '2 days off' -> 2.0
-    """
-    d_low = desc.lower()
-    if '1.5' in d_low or '1 and a half' in d_low or 'one and a half' in d_low:
-        return 1.5
-    if '0 day' in d_low or '0 full' in d_low or 'no day off' in d_low or 'zero day' in d_low:
-        return 0.0
-    if '1 day' in d_low or '1 full' in d_low or 'one day' in d_low or 'sunday off' in d_low or 'sunday day off' in d_low:
-        return 1.0
-    if '2 day' in d_low or '2 full' in d_low or 'two day' in d_low:
-        return 2.0
+    Parses how many days off are targeted from a SHORT, explicit constraint description.
+    Only matches clear numeric specifications like '1.5 days off', '2 days off', etc.
+    Long descriptions (> 200 chars) are treated as rotation/pattern explanations, not days-off specs.
     
-    m = re.search(r'(\d+(\.\d+)?)\s*(?:full\s*)?day', d_low)
+    e.g. '1.5 days off' -> 1.5
+         '2 days off per week' -> 2.0
+         '1 full day off' -> 1.0
+         'Rotation leads with Saturday AM/PM alternation' -> None (no explicit target)
+         'Long paragraph about rotation...' -> None (too long, not a spec)
+    """
+    d_low = desc.lower().strip()
+    
+    # Long descriptions are rotation pattern explanations, not days-off specifications
+    if len(d_low) > 200:
+        return None
+    
+    # Match explicit numeric days-off patterns with regex
+    # Pattern: "X days off" or "X full days off" or "X.X days off"
+    m = re.search(r'(\d+(?:\.\d+)?)\s*(?:full\s*)?days?\s*off', d_low)
     if m:
         try:
             return float(m.group(1))
         except ValueError:
             pass
+    
+    # Match written-out patterns
+    if '1 and a half' in d_low or 'one and a half' in d_low:
+        if 'day' in d_low and 'off' in d_low:
+            return 1.5
+    
+    # Match "no days off" / "zero days off"
+    if ('no day' in d_low and 'off' in d_low) or ('zero day' in d_low and 'off' in d_low):
+        return 0.0
+
+    # Match "Monday-Saturday; strictly Sunday DAY OFF" pattern (1 day off)
+    if ('sunday day off' in d_low or 'sunday off' in d_low or 'strictly sunday' in d_low) and ('mon' in d_low or 'work' in d_low):
+        return 1.0
+
     return None
 
 def load_system_constraints(db: Any = None) -> List[Any]:
@@ -440,15 +456,21 @@ def validate_schedule_period(period, db: Any = None) -> Dict[str, Any]:
                         })
 
     # ── 6. DYNAMIC DAYS OFF COMPLIANCE ──
-    # Build employee target days off from ALL active constraints in DAYS_OFF, LEAD_ROTATION, etc.
+    # Identify rotation leads from active LEAD_ROTATION constraints
+    lead_rotation_staff = set()
+    lead_rotation_titles = []
+    for c in active_constraints:
+        if c.category == 'LEAD_ROTATION':
+            lead_rotation_staff.update(parse_staff_set(c.staff_names))
+            lead_rotation_titles.append(c.title)
+
+    # Build employee target days off from active DAYS_OFF constraints
     staff_days_off_rule: Dict[str, Dict[str, Any]] = {}
 
     for c in active_constraints:
-        if c.category in ('DAYS_OFF', 'LEAD_ROTATION') or 'days off' in c.description.lower() or 'day off' in c.description.lower():
+        if c.category == 'DAYS_OFF':
             target = parse_days_off_target(c.description)
             assigned_staff = parse_staff_set(c.staff_names)
-            
-            # If target was successfully parsed (e.g. 1.5, 1.0, 0.0, 2.0)
             if target is not None:
                 for s in assigned_staff:
                     staff_days_off_rule[s] = {
@@ -467,7 +489,26 @@ def validate_schedule_period(period, db: Any = None) -> Dict[str, Any]:
     for (w_idx, emp_name), full_offs in emp_weekly_full_offs.items():
         half_shifts = emp_weekly_half_shifts.get((w_idx, emp_name), 0)
 
-        # Check if a specific active rule targets this employee
+        # 1. Lead Rotation staff (Hebron, Beti):
+        # Governed by active Lead Rotation policy:
+        # - Rotation alternates working Sunday (0 full off + Saturday half-day) and off Sunday (Monday recovery off + Saturday half-day).
+        # - Having full_offs >= 1 or half_shifts >= 1 is fully compliant with lead rotation!
+        # - Only violates if lead has 0 full offs AND 0 half-day shifts (7 full working shifts without any break).
+        if emp_name in lead_rotation_staff:
+            if full_offs == 0 and half_shifts == 0:
+                checklist["days_off_valid"] = False
+                rule_name = lead_rotation_titles[0] if lead_rotation_titles else "Lead Rotation"
+                conflicts.append({
+                    "date": f"Week {w_idx + 1}",
+                    "employee_name": emp_name,
+                    "severity": "critical",
+                    "error_type": "DAYS_OFF_VIOLATION",
+                    "message": f"{emp_name} has 0 days off and no half-day in Week {w_idx + 1}. Under rule '{rule_name}', lead requires at least Saturday half-day off.",
+                    "suggestion": f"Schedule at least a Saturday half-day (AM/PM) or 1 full day off for {emp_name}."
+                })
+            continue
+
+        # 2. Specific DAYS_OFF constraint (e.g. Feruza 1.5, Yordi & Obsa 1.0)
         if emp_name in staff_days_off_rule:
             rule_spec = staff_days_off_rule[emp_name]
             target = rule_spec["target"]
@@ -500,7 +541,7 @@ def validate_schedule_period(period, db: Any = None) -> Dict[str, Any]:
                         "suggestion": f"Set {emp_name} to Day OFF on Sunday or another day."
                     })
             elif target == 0.0:
-                # 0 days off explicitly allowed by configured rule! No conflict!
+                # 0 days off explicitly allowed
                 pass
             elif target >= 2.0:
                 if full_offs < 2:
@@ -513,19 +554,19 @@ def validate_schedule_period(period, db: Any = None) -> Dict[str, Any]:
                         "message": f"{emp_name} has {full_offs} days OFF in Week {w_idx + 1}. Exactly 2 days OFF are required by rule '{rule_title}'.",
                         "suggestion": f"Adjust shifts so {emp_name} has 2 days off during the week."
                     })
-        else:
-            # Employee has no special active constraint.
-            # Enforce standard 2 days off if standard rule is active in engine!
-            if is_standard_2_active:
-                if full_offs != 2:
-                    conflicts.append({
-                        "date": f"Week {w_idx + 1}",
-                        "employee_name": emp_name,
-                        "severity": "critical" if full_offs < 2 else "warning",
-                        "error_type": "DAYS_OFF_VIOLATION",
-                        "message": f"{emp_name} has {full_offs} days OFF in Week {w_idx + 1}. Standard policy requires 2 days OFF.",
-                        "suggestion": f"Adjust shifts so {emp_name} has exactly 2 days off during the week."
-                    })
+            continue
+
+        # 3. Fallback: Rest of staff standard 2 days off
+        if is_standard_2_active:
+            if full_offs != 2:
+                conflicts.append({
+                    "date": f"Week {w_idx + 1}",
+                    "employee_name": emp_name,
+                    "severity": "critical" if full_offs < 2 else "warning",
+                    "error_type": "DAYS_OFF_VIOLATION",
+                    "message": f"{emp_name} has {full_offs} days OFF in Week {w_idx + 1}. Standard policy requires 2 days OFF.",
+                    "suggestion": f"Adjust shifts so {emp_name} has exactly 2 days off during the week."
+                })
 
     # ── 7. CALL CENTER COVERAGE ──
     for day in days:
