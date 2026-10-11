@@ -67,8 +67,9 @@ def parse_days_off_target(desc: str) -> Optional[float]:
     if ('no day' in d_low and 'off' in d_low) or ('zero day' in d_low and 'off' in d_low):
         return 0.0
 
-    # Match "Monday-Saturday; strictly Sunday DAY OFF" pattern (1 day off)
-    if ('sunday day off' in d_low or 'sunday off' in d_low or 'strictly sunday' in d_low) and ('mon' in d_low or 'work' in d_low):
+    # Match Sunday OFF patterns (means 1 full day off per week, which is Sunday)
+    # e.g. "strictly Sunday DAY OFF", "Sunday off", "Sunday day off"
+    if 'sunday day off' in d_low or 'sunday dayoff' in d_low or 'strictly sunday' in d_low or 'sunday off' in d_low:
         return 1.0
 
     return None
@@ -470,6 +471,15 @@ def validate_schedule_period(period, db: Any = None) -> Dict[str, Any]:
     for c in active_constraints:
         if c.category == 'DAYS_OFF':
             target = parse_days_off_target(c.description)
+            if target is None:
+                rk = getattr(c, 'rule_key', '')
+                if rk == 'yordi_obsa_sunday_off' or 'sunday' in c.title.lower() or 'yordi' in c.title.lower():
+                    target = 1.0
+                elif rk == 'feruza_days_off' or 'feruza' in c.title.lower():
+                    target = 1.5
+                elif rk == 'standard_two_days_off' or 'rest of staff' in c.title.lower():
+                    target = 2.0
+
             assigned_staff = parse_staff_set(c.staff_names)
             if target is not None:
                 for s in assigned_staff:
