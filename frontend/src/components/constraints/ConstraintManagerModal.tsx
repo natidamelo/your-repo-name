@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Plus,
@@ -61,6 +61,7 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const modalBodyRef = useRef<HTMLDivElement>(null);
 
   const fetchConstraints = async () => {
     setIsLoading(true);
@@ -96,6 +97,11 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
     setFormStaffNames('');
     setFormIsActive(true);
     setIsEditing(true);
+
+    // Scroll to the top of the modal body so the new constraint form is instantly visible
+    setTimeout(() => {
+      modalBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 50);
   };
 
   const openEditForm = (c: SystemConstraint) => {
@@ -106,6 +112,14 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
     setFormStaffNames(c.staff_names || '');
     setFormIsActive(c.is_active);
     setIsEditing(true);
+
+    // Smoothly scroll the card into view right where the user is looking
+    setTimeout(() => {
+      const cardEl = document.getElementById(`constraint-card-${c.id}`);
+      if (cardEl) {
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 50);
   };
 
   const cancelForm = () => {
@@ -251,9 +265,9 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
         )}
 
         {/* Modal Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+        <div ref={modalBodyRef} className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
           {/* Top Controls: Add Button & Reset */}
-          {!isEditing && (
+          {(!isEditing || editingId !== null) && (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div className="flex items-center space-x-2">
                 <button
@@ -291,7 +305,7 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
           )}
 
           {/* Category Filter Pills */}
-          {!isEditing && (
+          {(!isEditing || editingId !== null) && (
             <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
               <button
                 type="button"
@@ -325,16 +339,16 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
             </div>
           )}
 
-          {/* Add / Edit Form Mode */}
-          {isEditing && (
-            <form onSubmit={handleSaveConstraint} className="p-5 rounded-xl border border-primary/30 bg-primary/[0.02] space-y-4 animate-in fade-in duration-200">
+          {/* Create New Constraint Form Mode (at top) */}
+          {isEditing && editingId === null && (
+            <form onSubmit={handleSaveConstraint} className="p-5 rounded-xl border-2 border-primary/40 bg-card shadow-lg space-y-4 animate-in fade-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between pb-3 border-b border-border">
                 <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-primary" />
-                  {editingId ? 'Edit Fixed Constraint' : 'Create New Fixed Constraint'}
+                  Create New Fixed Constraint
                 </h4>
-                <span className="text-xs text-muted-foreground">
-                  {editingId ? `Rule ID #${editingId}` : 'New Rule'}
+                <span className="text-xs px-2 py-0.5 rounded font-mono bg-secondary text-muted-foreground">
+                  New Rule
                 </span>
               </div>
 
@@ -346,6 +360,7 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
                   <input
                     type="text"
                     required
+                    autoFocus
                     placeholder="e.g. Hebron & Beti, Sunday Squad, Friday Off"
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
@@ -400,15 +415,15 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
                   />
                 </div>
 
-                <div className="pt-4 flex items-center space-x-2">
+                <div className="pt-2 sm:pt-4 flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    id="isActiveCheck"
+                    id="isActiveCheck_new"
                     checked={formIsActive}
                     onChange={(e) => setFormIsActive(e.target.checked)}
                     className="w-4 h-4 rounded text-primary border-input focus:ring-primary"
                   />
-                  <label htmlFor="isActiveCheck" className="text-xs font-medium text-foreground cursor-pointer">
+                  <label htmlFor="isActiveCheck_new" className="text-xs font-medium text-foreground cursor-pointer select-none">
                     Enforce Active
                   </label>
                 </div>
@@ -418,7 +433,7 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
                 <button
                   type="button"
                   onClick={cancelForm}
-                  className="h-9 px-4 rounded-lg border border-border bg-secondary hover:bg-accent text-secondary-foreground text-xs font-medium transition"
+                  className="h-9 px-4 rounded-lg border border-border bg-secondary hover:bg-accent text-secondary-foreground text-xs font-medium transition active:scale-95"
                 >
                   Cancel
                 </button>
@@ -428,7 +443,7 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
                   className="h-9 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-sm flex items-center space-x-1.5 transition active:scale-95 disabled:opacity-50"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{isSaving ? 'Saving...' : 'Save Constraint'}</span>
+                  <span>{isSaving ? 'Saving...' : 'Create Constraint'}</span>
                 </button>
               </div>
             </form>
@@ -454,10 +469,125 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
           ) : (
             <div className="grid grid-cols-1 gap-2.5">
               {filteredConstraints.map((c) => {
+                // If this specific constraint is being edited, render the edit form inline right here!
+                if (isEditing && editingId === c.id) {
+                  return (
+                    <div key={c.id} id={`constraint-card-${c.id}`} className="animate-in fade-in zoom-in-95 duration-200">
+                      <form onSubmit={handleSaveConstraint} className="p-4 sm:p-5 rounded-xl border-2 border-primary bg-card shadow-xl space-y-4 ring-2 ring-primary/20">
+                        <div className="flex items-center justify-between pb-3 border-b border-border">
+                          <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                            <Sliders className="w-4 h-4 text-primary" />
+                            Edit Constraint: <span className="text-primary">{formTitle || c.title}</span>
+                          </h4>
+                          <span className="text-xs px-2 py-0.5 rounded font-mono bg-secondary text-muted-foreground">
+                            Rule ID #{c.id}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-foreground mb-1">
+                              Constraint Title <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              autoFocus
+                              placeholder="e.g. Hebron & Beti, Sunday Squad, Friday Off"
+                              value={formTitle}
+                              onChange={(e) => setFormTitle(e.target.value)}
+                              className="w-full h-9 px-3 rounded-lg bg-background border border-input text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-foreground mb-1">
+                              Category Classification
+                            </label>
+                            <select
+                              value={formCategory}
+                              onChange={(e) => setFormCategory(e.target.value)}
+                              className="w-full h-9 px-3 rounded-lg bg-background border border-input text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            >
+                              <option value="LEAD_ROTATION">Lead Rotation</option>
+                              <option value="SUNDAY_SQUAD">Sunday Squad</option>
+                              <option value="EARLY_MORNING">Early Morning (08:00)</option>
+                              <option value="DAYS_OFF">Days Off Policy</option>
+                              <option value="TASK_ROTATION">Task Assignment</option>
+                              <option value="GENERAL">General / Custom</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-foreground mb-1">
+                            Enforced Rule Description <span className="text-rose-500">*</span>
+                          </label>
+                          <textarea
+                            required
+                            rows={2}
+                            placeholder="Explain the constraint logic (e.g. Exactly 5 staff on duty; 2-3 get Monday recovery OFF)."
+                            value={formDescription}
+                            onChange={(e) => setFormDescription(e.target.value)}
+                            className="w-full p-3 rounded-lg bg-background border border-input text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-semibold text-foreground mb-1">
+                              Target Staff Members
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Comma-separated names (e.g. Shalom, Rediet, Tirsit)"
+                              value={formStaffNames}
+                              onChange={(e) => setFormStaffNames(e.target.value)}
+                              className="w-full h-9 px-3 rounded-lg bg-background border border-input text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            />
+                          </div>
+
+                          <div className="pt-2 sm:pt-4 flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`isActiveCheck_${c.id}`}
+                              checked={formIsActive}
+                              onChange={(e) => setFormIsActive(e.target.checked)}
+                              className="w-4 h-4 rounded text-primary border-input focus:ring-primary"
+                            />
+                            <label htmlFor={`isActiveCheck_${c.id}`} className="text-xs font-medium text-foreground cursor-pointer select-none">
+                              Enforce Active
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end space-x-2.5 pt-3 border-t border-border">
+                          <button
+                            type="button"
+                            onClick={cancelForm}
+                            className="h-9 px-4 rounded-lg border border-border bg-secondary hover:bg-accent text-secondary-foreground text-xs font-medium transition active:scale-95"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isSaving}
+                            className="h-9 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-sm flex items-center space-x-1.5 transition active:scale-95 disabled:opacity-50"
+                          >
+                            <Check className="w-4 h-4" />
+                            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  );
+                }
+
                 const cat = CATEGORY_LABELS[c.category] || CATEGORY_LABELS.GENERAL;
                 return (
                   <div
                     key={c.id}
+                    id={`constraint-card-${c.id}`}
                     className={`p-3.5 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                       c.is_active
                         ? 'border-border bg-card hover:border-primary/40 shadow-xs'
@@ -507,7 +637,10 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
                       {/* Active Toggle Switch */}
                       <button
                         type="button"
-                        onClick={() => handleToggle(c)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggle(c);
+                        }}
                         className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold border transition flex items-center space-x-1 ${
                           c.is_active
                             ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
@@ -521,8 +654,12 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => openEditForm(c)}
-                        className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          openEditForm(c);
+                        }}
+                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition"
                         title="Edit Constraint"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -530,7 +667,11 @@ export const ConstraintManagerModal: React.FC<ConstraintManagerModalProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => handleDelete(c)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleDelete(c);
+                        }}
                         className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition"
                         title="Delete Constraint"
                       >
