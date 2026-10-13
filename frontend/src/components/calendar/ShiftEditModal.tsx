@@ -161,7 +161,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
 
   const modalNode = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
@@ -170,20 +170,20 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
         onClick={(e) => e.stopPropagation()}
       >
 
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0 rounded-t-2xl bg-card">
-          <div>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-primary" />
-              Edit Shift &amp; Tasks &mdash; <span className="text-primary">{shift.employee_name}</span>
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-border flex items-center justify-between shrink-0 rounded-t-2xl bg-card">
+          <div className="min-w-0 flex-1 pr-2">
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2 truncate">
+              <Briefcase className="w-4 h-4 text-primary shrink-0" />
+              <span className="truncate">Edit Shift &amp; Tasks &mdash; <span className="text-primary">{shift.employee_name}</span></span>
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">{dateStr}</p>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition">
+          <button type="button" onClick={onClose} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition shrink-0" title="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <div className="overflow-y-auto flex-1 px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
 
           {/* Guzo Go Schedule Key Presets */}
           <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/[0.03] space-y-2.5">
@@ -330,7 +330,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
                 </div>
 
                 {tasks.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Set Time Per Task</p>
                     {tasks.map((task, idx) => {
                       const c = col(task.name);
@@ -338,37 +338,103 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
                         ? 'border-amber-400 dark:border-amber-600 bg-amber-50/60 dark:bg-amber-950/20'
                         : `${c.border} ${c.bg}`;
                       return (
-                        <div key={task.id} className={`flex items-center gap-2 p-3 rounded-xl border ${rowBg}`}>
-                          <span className={`shrink-0 w-5 text-center text-[11px] font-bold font-mono ${task.isBackup ? 'text-amber-600 dark:text-amber-400' : c.text}`}>{idx + 1}</span>
-                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${task.isBackup ? 'bg-amber-500' : c.dot}`} />
-                            <span className={`text-xs font-semibold truncate ${task.isBackup ? 'text-amber-700 dark:text-amber-300' : c.text}`}>{task.name}</span>
-                            {idx === 0 && !task.isBackup && <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">Primary</span>}
-                            {idx === 1 && !task.isBackup && <span className="text-[9px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">Secondary</span>}
-                            {task.isBackup && (
-                              <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded shrink-0">BACKUP</span>
-                            )}
+                        <div key={task.id} className={`p-2.5 sm:p-3 rounded-xl border ${rowBg} space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-2`}>
+                          {/* Top row on mobile / Left section on desktop: Index, Name, Badges, and mobile controls */}
+                          <div className="flex items-center justify-between gap-1.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span className={`shrink-0 w-5 text-center text-[11px] font-bold font-mono ${task.isBackup ? 'text-amber-600 dark:text-amber-400' : c.text}`}>
+                                {idx + 1}
+                              </span>
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${task.isBackup ? 'bg-amber-500' : c.dot}`} />
+                              <span className={`text-xs font-bold truncate ${task.isBackup ? 'text-amber-700 dark:text-amber-300' : c.text}`} title={task.name}>
+                                {task.name}
+                              </span>
+                              {idx === 0 && !task.isBackup && (
+                                <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">Primary</span>
+                              )}
+                              {idx === 1 && !task.isBackup && (
+                                <span className="text-[9px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">Secondary</span>
+                              )}
+                              {task.isBackup && (
+                                <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded shrink-0">
+                                  BACKUP
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Mobile phone controls: BKP and prominent X remove button */}
+                            <div className="flex items-center gap-1.5 shrink-0 sm:hidden">
+                              <button
+                                type="button"
+                                onClick={() => updateField(task.id, 'isBackup', !task.isBackup)}
+                                className={`text-[9px] font-bold px-2 py-1 rounded border transition ${
+                                  task.isBackup
+                                    ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                                    : 'bg-background text-muted-foreground border-border hover:border-amber-400 hover:text-amber-600'
+                                }`}
+                                title="Toggle backup"
+                              >
+                                BKP
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeTask(task.id)}
+                                className="p-1 rounded-md text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 border border-rose-300/60 dark:border-rose-800/60 bg-background transition shrink-0"
+                                title="Remove task"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
-                          <button type="button"
+
+                          {/* Desktop BKP toggle */}
+                          <button
+                            type="button"
                             onClick={() => updateField(task.id, 'isBackup', !task.isBackup)}
-                            className={`shrink-0 text-[9px] font-bold px-2 py-1 rounded border transition ${
-                              task.isBackup ? 'bg-amber-500 text-white border-amber-600' : 'bg-background text-muted-foreground border-border hover:border-amber-400 hover:text-amber-600'
-                            }`} title="Toggle backup">BKP</button>
-                          <div className="shrink-0 flex flex-col items-center gap-0.5">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase">From</span>
-                            <input type="time" value={task.start} onChange={e => updateField(task.id, 'start', e.target.value)}
-                              className="h-8 w-[90px] px-2 rounded-lg bg-background border border-input text-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-ring" />
-                          </div>
-                          <span className="text-muted-foreground text-sm shrink-0">to</span>
-                          <div className="shrink-0 flex flex-col items-center gap-0.5">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase">To</span>
-                            <input type="time" value={task.end} onChange={e => updateField(task.id, 'end', e.target.value)}
-                              className="h-8 w-[90px] px-2 rounded-lg bg-background border border-input text-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-ring" />
-                          </div>
-                          <button type="button" onClick={() => removeTask(task.id)}
-                            className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition">
-                            <X className="w-3.5 h-3.5" />
+                            className={`hidden sm:inline-flex shrink-0 text-[9px] font-bold px-2 py-1 rounded border transition ${
+                              task.isBackup
+                                ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                                : 'bg-background text-muted-foreground border-border hover:border-amber-400 hover:text-amber-600'
+                            }`}
+                            title="Toggle backup"
+                          >
+                            BKP
                           </button>
+
+                          {/* Time range inputs: dedicated row on mobile, inline on desktop */}
+                          <div className="flex items-center justify-between sm:justify-end gap-2 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-border/30">
+                            <div className="flex items-center gap-1.5 sm:gap-0.5 sm:flex-col sm:items-center">
+                              <span className="text-[10px] sm:text-[9px] font-bold text-muted-foreground uppercase">From</span>
+                              <input
+                                type="time"
+                                value={task.start}
+                                onChange={e => updateField(task.id, 'start', e.target.value)}
+                                className="h-8 w-[95px] sm:w-[85px] px-2 rounded-lg bg-background border border-input text-foreground text-xs sm:text-sm text-center focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+
+                            <span className="text-muted-foreground text-xs sm:text-sm shrink-0">to</span>
+
+                            <div className="flex items-center gap-1.5 sm:gap-0.5 sm:flex-col sm:items-center">
+                              <span className="text-[10px] sm:text-[9px] font-bold text-muted-foreground uppercase">To</span>
+                              <input
+                                type="time"
+                                value={task.end}
+                                onChange={e => updateField(task.id, 'end', e.target.value)}
+                                className="h-8 w-[95px] sm:w-[85px] px-2 rounded-lg bg-background border border-input text-foreground text-xs sm:text-sm text-center focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+
+                            {/* Desktop X remove button */}
+                            <button
+                              type="button"
+                              onClick={() => removeTask(task.id)}
+                              className="hidden sm:inline-flex shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition"
+                              title="Remove task"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -420,7 +486,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({ shift, dateStr, 
 
         </div>
 
-        <div className="shrink-0 px-6 py-4 border-t border-border bg-card rounded-b-2xl space-y-2">
+        <div className="shrink-0 px-4 sm:px-6 py-3.5 sm:py-4 border-t border-border bg-card rounded-b-2xl space-y-2">
 
           {saveError && (
             <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-medium">
