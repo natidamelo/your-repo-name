@@ -12,16 +12,24 @@ import {
 } from 'lucide-react';
 import { getDayCoverageApi, getDashboardSummaryApi } from '../api/client';
 import { DayCoverageSummary } from '../types';
+import { getLocalTodayDateString } from '../utils/dateUtils';
 
 interface DailyStaffPageProps {
   initialDate?: string;
 }
 
-export const DailyStaffPage: React.FC<DailyStaffPageProps> = ({ initialDate = '2026-09-28' }) => {
-  const [currentDate, setCurrentDate] = useState<string>(initialDate);
+export const DailyStaffPage: React.FC<DailyStaffPageProps> = ({ initialDate }) => {
+  const [currentDate, setCurrentDate] = useState<string>(() => initialDate || getLocalTodayDateString());
   const [coverageData, setCoverageData] = useState<DayCoverageSummary | null>(null);
   const [daySummary, setDaySummary] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Sync when initialDate prop changes from calendar or navigation
+  useEffect(() => {
+    if (initialDate) {
+      setCurrentDate(initialDate);
+    }
+  }, [initialDate]);
 
   const fetchDailyDetails = async (dt: string) => {
     setIsLoading(true);
@@ -46,8 +54,10 @@ export const DailyStaffPage: React.FC<DailyStaffPageProps> = ({ initialDate = '2
   const changeDateBy = (days: number) => {
     const d = new Date(currentDate + 'T00:00:00');
     d.setDate(d.getDate() + days);
-    const newStr = d.toISOString().split('T')[0];
-    setCurrentDate(newStr);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    setCurrentDate(`${y}-${m}-${day}`);
   };
 
   const dObj = new Date(currentDate + 'T00:00:00');
@@ -63,16 +73,17 @@ export const DailyStaffPage: React.FC<DailyStaffPageProps> = ({ initialDate = '2
             <CalendarClock className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-foreground">Daily Operations & Assignments</h2>
+            <h2 className="text-base font-semibold text-foreground">Daily Operations &amp; Assignments</h2>
             <p className="text-xs text-muted-foreground">Shift times, lunch intervals, and primary/secondary tasks</p>
           </div>
         </div>
 
         {/* Date Selector Navigation */}
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => changeDateBy(-1)}
             className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-foreground transition"
+            title="Previous Day"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -87,8 +98,22 @@ export const DailyStaffPage: React.FC<DailyStaffPageProps> = ({ initialDate = '2
           <button
             onClick={() => changeDateBy(1)}
             className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-foreground transition"
+            title="Next Day"
           >
             <ChevronRight className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentDate(getLocalTodayDateString())}
+            className={`h-8 px-2.5 rounded-md text-xs font-semibold border transition ${
+              currentDate === getLocalTodayDateString()
+                ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                : 'bg-background hover:bg-accent text-muted-foreground hover:text-foreground border-input'
+            }`}
+            title="Jump to current date"
+          >
+            Today
           </button>
 
           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase ${
@@ -100,6 +125,12 @@ export const DailyStaffPage: React.FC<DailyStaffPageProps> = ({ initialDate = '2
           }`}>
             {dObj.toLocaleDateString('en-US', { weekday: 'long' })}
           </span>
+
+          {currentDate === getLocalTodayDateString() && (
+            <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold">
+              TODAY
+            </span>
+          )}
         </div>
       </div>
 

@@ -42,18 +42,25 @@ import {
   AttendanceStatus,
   CoverStatus
 } from '../types';
+import { getLocalTodayDateString } from '../utils/dateUtils';
 
 interface AttendancePageProps {
   initialDate?: string;
   activeScheduleId?: number;
 }
 
-export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2026-10-09', activeScheduleId }) => {
+export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate, activeScheduleId }) => {
   const { role, user } = useAuth();
   const isAdminOrManager = role === 'admin' || role === 'manager';
 
   // Navigation & View state
-  const [currentDate, setCurrentDate] = useState<string>(initialDate);
+  const [currentDate, setCurrentDate] = useState<string>(() => initialDate || getLocalTodayDateString());
+
+  useEffect(() => {
+    if (initialDate) {
+      setCurrentDate(initialDate);
+    }
+  }, [initialDate]);
   const [activeView, setActiveView] = useState<'sheet' | 'pending_cover' | 'analytics'>('sheet');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
@@ -169,11 +176,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ initialDate = '2
   };
 
   const handleSetToday = () => {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    setCurrentDate(`${yyyy}-${mm}-${dd}`);
+    setCurrentDate(getLocalTodayDateString());
   };
 
   // Quick mark present

@@ -47,6 +47,7 @@ import { ShiftEditModal } from '../components/calendar/ShiftEditModal';
 import { ShiftKeyLegendModal } from '../components/schedule/ShiftKeyLegendModal';
 import { getGuzoShiftKey, getGuzoCellNotation, GUZO_SHIFT_PRESETS, GUZO_TASK_CODES } from '../utils/guzoKey';
 import { useAuth } from '../context/AuthContext';
+import { getLocalTodayDateString } from '../utils/dateUtils';
 
 interface CalendarPageProps {
   onOpenGenerator: () => void;
@@ -73,7 +74,7 @@ function getInitials(name: string): string {
 }
 
 // ─── Today's date string ────────────────────────────────────
-const TODAY_STR = new Date().toISOString().split('T')[0];
+const TODAY_STR = getLocalTodayDateString();
 
 export const CalendarPage: React.FC<CalendarPageProps> = ({
   onOpenGenerator,

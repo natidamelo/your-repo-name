@@ -14,12 +14,13 @@ import { AttendancePage } from './pages/AttendancePage';
 import { LoginPage } from './pages/LoginPage';
 import { ScheduleGeneratorModal } from './components/schedule/ScheduleGeneratorModal';
 import { getSchedulesApi } from './api/client';
+import { getLocalTodayDateString } from './utils/dateUtils';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState<boolean>(false);
-  const [selectedDailyDate, setSelectedDailyDate] = useState<string>('2026-10-09');
+  const [selectedDailyDate, setSelectedDailyDate] = useState<string>(getLocalTodayDateString());
   const [activeSchedule, setActiveSchedule] = useState<any | null>(null);
   const [calendarDateRange, setCalendarDateRange] = useState<{
     startDate?: string;
@@ -32,10 +33,10 @@ const AppContent: React.FC = () => {
     try {
       const list = await getSchedulesApi();
       if (list && list.length > 0) {
-        const todayStr = '2026-10-09';
-        // Prioritize Guzo Go schedule or schedule covering today
-        const current = list.find((p: any) => p.name?.includes('Guzo Go')) ||
-                        list.find((p: any) => todayStr >= p.start_date && todayStr <= p.end_date) ||
+        const todayStr = getLocalTodayDateString();
+        // Prioritize schedule covering today, then Guzo Go schedule, then latest schedule
+        const current = list.find((p: any) => todayStr >= p.start_date && todayStr <= p.end_date) ||
+                        list.find((p: any) => p.name?.includes('Guzo Go')) ||
                         list[0];
         setActiveSchedule(current);
       }
@@ -62,6 +63,16 @@ const AppContent: React.FC = () => {
     return <LoginPage />;
   }
 
+  const handleSelectTab = (tab: string) => {
+    if (tab === 'daily' && currentTab !== 'daily') {
+      setSelectedDailyDate(getLocalTodayDateString());
+    }
+    if (tab === 'attendance' && currentTab !== 'attendance') {
+      setSelectedDailyDate(getLocalTodayDateString());
+    }
+    setCurrentTab(tab);
+  };
+
   const handleSelectDateForDaily = (dateStr: string) => {
     setSelectedDailyDate(dateStr);
     setCurrentTab('daily');
@@ -75,7 +86,7 @@ const AppContent: React.FC = () => {
   return (
     <MainLayout
       currentTab={currentTab}
-      onSelectTab={setCurrentTab}
+      onSelectTab={handleSelectTab}
       onOpenGenerator={() => setIsGeneratorOpen(true)}
       activeScheduleName={activeSchedule ? activeSchedule.name : 'Sep 28 – Oct 11, 2026'}
       activeScheduleId={activeSchedule ? activeSchedule.id : 1}
