@@ -170,6 +170,44 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
     start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date()
     days_data = []
 
+    # Dynamically build staff profiles from DB if db is provided, otherwise fall back to STAFF_PROFILES
+    active_staff_profiles = dict(STAFF_PROFILES)
+    if db is not None:
+        try:
+            from app.models import Employee
+            from app.engine.validator import normalize_name
+            db_employees = db.query(Employee).filter(Employee.is_active == True).all()
+            if db_employees:
+                # Build canonical profile dict from active DB employees
+                db_profiles = {}
+                for e in db_employees:
+                    # Match name against canonical names or use normalized name
+                    canonical_key = normalize_name(e.first_name)
+                    
+                    # Lunch break
+                    l_start = e.lunch_break.start_time if e.lunch_break else "12:00"
+                    l_end = e.lunch_break.end_time if e.lunch_break else "13:00"
+                    
+                    # Working hours
+                    wh = e.working_hours[0] if (e.working_hours and len(e.working_hours) > 0) else None
+                    w_start = wh.start_time if wh else "08:00"
+                    w_end = wh.end_time if wh else "17:00"
+                    
+                    # Inherit base profile defaults if existing
+                    base = STAFF_PROFILES.get(canonical_key, {})
+                    db_profiles[canonical_key] = {
+                        "start_time": base.get("start_time", w_start),
+                        "end_time": base.get("end_time", w_end),
+                        "lunch_start": l_start or base.get("lunch_start", "12:00"),
+                        "lunch_end": l_end or base.get("lunch_end", "13:00"),
+                        "primary_task": base.get("primary_task", "Call Center"),
+                        "secondary_task": base.get("secondary_task", "Follow up"),
+                        "notes": base.get("notes", "Regular Shift")
+                    }
+                active_staff_profiles = db_profiles
+        except Exception as ex:
+            print(f"Notice: generator loading DB employees: {ex}")
+
     def get_emp_id(name: str) -> int:
         if not employee_db_map: return 0
         n_low = name.lower().strip()
@@ -210,7 +248,16 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
         off_lead = sun_lead["off"]       # "Hebron" or "Beti"
 
         # 4 other staff for Sunday = exactly 5 staff on Sunday
-        squad_pool = sunday_pool_rotation[week_idx % len(sunday_pool_rotation)]
+        raw_squad_pool = sunday_pool_rotation[week_idx % len(sunday_pool_rotation)]
+        # Filter raw squad pool to active staff, backfilling if an employee is deleted/deactivated
+        available_pool = [s for s in active_staff_profiles.keys() if s not in ("Hebron", "Beti", "Yordi", "Obsa")]
+        squad_pool = [s for s in raw_squad_pool if s in active_staff_profiles]
+        for candidate in available_pool:
+            if len(squad_pool) >= 4:
+                break
+            if candidate not in squad_pool:
+                squad_pool.append(candidate)
+
         active_sunday_squad = set([duty_lead] + squad_pool)
 
         # Determine who worked the previous Sunday (yesterday relative to this Monday)
@@ -221,7 +268,7 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
 
         # Off days map for this week: emp_name -> set of day offsets (0=Mon, 6=Sun)
         off_days_map: Dict[str, set] = {}
-        for emp in STAFF_PROFILES.keys():
+        for emp in active_staff_profiles.keys():
             off_days_map[emp] = set()
 
         # Rule: Worker who worked Sunday gets Monday (0) OFF!
@@ -270,7 +317,7 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
         # Handle remaining staff who do NOT work Sunday:
         # Sunday (6) is mandatory Day Off #1, plus 1 weekday off (Day Off #2) = exactly 2 days off
         remaining_staff = [
-            s for s in STAFF_PROFILES.keys() 
+            s for s in active_staff_profiles.keys() 
             if s not in active_sunday_squad and s not in ("Hebron", "Beti", "Feruza", "Yordi", "Obsa")
         ]
 
@@ -286,7 +333,7 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
             weekday = cur_date.weekday()
 
             day_shifts = []
-            for emp_name, profile in STAFF_PROFILES.items():
+            for emp_name, profile in active_staff_profiles.items():
                 emp_id = get_emp_id(emp_name)
                 is_off = (weekday in off_days_map[emp_name])
 

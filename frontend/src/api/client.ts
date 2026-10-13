@@ -170,6 +170,12 @@ export async function deactivateEmployeeApi(id: number) {
   });
 }
 
+export async function deleteEmployeeApi(id: number, permanent: boolean = false) {
+  return apiRequest(`/employees/${id}?permanent=${permanent}`, {
+    method: 'DELETE'
+  });
+}
+
 // Skills
 export async function getSkillsApi() {
   return apiRequest('/skills/');

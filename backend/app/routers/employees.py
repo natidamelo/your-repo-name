@@ -2,13 +2,46 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models import Employee, Skill, EmployeeSkill, WorkingHours, LunchBreak, SpecialRule, User
+from app.models import Employee, Skill, EmployeeSkill, WorkingHours, LunchBreak, SpecialRule, User, SystemConstraint, AuditLog
 from app.schemas import (
     EmployeeDetailResponse, EmployeeCreate, EmployeeUpdate, EmployeeSkillResponse
 )
 from app.core.dependencies import get_current_user, require_role
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
+
+def sync_constraints_staff_list(db: Session, employee_name: str, action: str, old_name: str = None):
+    """
+    Keep system constraints staff_names aligned when employees are added, renamed, or deleted.
+    """
+    try:
+        constraints = db.query(SystemConstraint).all()
+        for c in constraints:
+            if not c.staff_names:
+                continue
+            names = [n.strip() for n in c.staff_names.split(',') if n.strip()]
+            modified = False
+            
+            if action == "rename" and old_name:
+                new_names = []
+                for n in names:
+                    if n.lower() == old_name.lower():
+                        new_names.append(employee_name)
+                        modified = True
+                    else:
+                        new_names.append(n)
+                names = new_names
+            elif action == "delete":
+                new_names = [n for n in names if n.lower() != employee_name.lower()]
+                if len(new_names) != len(names):
+                    names = new_names
+                    modified = True
+            
+            if modified:
+                c.staff_names = ", ".join(names)
+        db.flush()
+    except Exception as e:
+        print(f"Notice: sync_constraints_staff_list: {e}")
 
 def build_employee_response(emp: Employee) -> dict:
     skills_data = []
@@ -101,6 +134,17 @@ def create_employee(
             sr = SpecialRule(employee_id=emp.id, rule_type=r)
             db.add(sr)
 
+    audit = AuditLog(
+        user_id=current_user.id,
+        user_name=current_user.username,
+        action="CREATE_EMPLOYEE",
+        entity_type="Employee",
+        entity_id=emp.id,
+        new_value=f"Created employee profile for {emp.full_name} ({emp.position})",
+        reason="Admin/Manager employee addition"
+    )
+    db.add(audit)
+
     db.commit()
     db.refresh(emp)
     return build_employee_response(emp)
@@ -115,6 +159,9 @@ def update_employee(
     emp = db.query(Employee).filter(Employee.id == id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
+
+    old_first_name = emp.first_name
+    old_full_name = emp.full_name
 
     if emp_in.first_name is not None:
         emp.first_name = emp_in.first_name
@@ -154,19 +201,78 @@ def update_employee(
             sr = SpecialRule(employee_id=emp.id, rule_type=r)
             db.add(sr)
 
+    # Sync constraint staff lists if first name changed
+    if emp_in.first_name is not None and emp_in.first_name != old_first_name:
+        sync_constraints_staff_list(db, emp.first_name, action="rename", old_name=old_first_name)
+
+    audit = AuditLog(
+        user_id=current_user.id,
+        user_name=current_user.username,
+        action="UPDATE_EMPLOYEE",
+        entity_type="Employee",
+        entity_id=emp.id,
+        old_value=old_full_name,
+        new_value=f"Updated profile for {emp.full_name} (active: {emp.is_active})",
+        reason="Admin/Manager employee update"
+    )
+    db.add(audit)
+
     db.commit()
     db.refresh(emp)
     return build_employee_response(emp)
 
 @router.delete("/{id}")
-def deactivate_employee(
+def delete_employee(
     id: int,
+    permanent: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
     emp = db.query(Employee).filter(Employee.id == id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
-    emp.is_active = False
-    db.commit()
-    return {"message": f"Employee {emp.full_name} deactivated"}
+
+    emp_name = emp.full_name
+    first_name = emp.first_name
+
+    if permanent:
+        # Check linked records and safely detach or delete
+        if emp.user:
+            emp.user.employee_id = None
+        
+        from app.models import AttendanceRecord
+        db.query(AttendanceRecord).filter(AttendanceRecord.covered_by_employee_id == id).update(
+            {"covered_by_employee_id": None}
+        )
+
+        db.delete(emp)
+        sync_constraints_staff_list(db, first_name, action="delete")
+
+        audit = AuditLog(
+            user_id=current_user.id,
+            user_name=current_user.username,
+            action="DELETE_EMPLOYEE_PERMANENT",
+            entity_type="Employee",
+            entity_id=id,
+            old_value=emp_name,
+            new_value=f"Permanently deleted employee profile {emp_name}",
+            reason="Admin permanent deletion"
+        )
+        db.add(audit)
+        db.commit()
+        return {"message": f"Employee {emp_name} permanently deleted", "id": id, "status": "deleted"}
+    else:
+        emp.is_active = False
+        audit = AuditLog(
+            user_id=current_user.id,
+            user_name=current_user.username,
+            action="DEACTIVATE_EMPLOYEE",
+            entity_type="Employee",
+            entity_id=id,
+            old_value=emp_name,
+            new_value=f"Deactivated employee profile {emp_name}",
+            reason="Admin employee deactivation"
+        )
+        db.add(audit)
+        db.commit()
+        return {"message": f"Employee {emp_name} deactivated", "id": id, "status": "deactivated"}
