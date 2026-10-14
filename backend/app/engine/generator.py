@@ -169,6 +169,10 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
     12. 2839 & Follow-up rotated among Luam, Obsa, Yordi, Beti, Shalom, Yabsera N.
     """
     start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    # Snap start date to Monday of the week if non-Monday is supplied
+    if start_dt.weekday() != 0:
+        start_dt = start_dt - timedelta(days=start_dt.weekday())
+        start_date_str = start_dt.strftime("%Y-%m-%d")
     days_data = []
 
     # Dynamically build staff profiles from DB if db is provided, otherwise fall back to STAFF_PROFILES
@@ -228,13 +232,26 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
                 return v
         return 0
 
-    # Pool of Sunday squads (each week has 1 Lead + 4 other agents = exactly 5 staff)
-    sunday_pool_rotation = [
-        ["Yabsera N", "Biruk", "Tirsit", "Feruza"],
-        ["Biruk", "Hermela", "Shalom", "Rediet"],
-        ["Yabsera N", "Tirsit", "Feruza", "Luam"],
-        ["Biruk", "Rediet", "Hermela", "Shalom"]
-    ]
+    # Dynamic eligible staff for Sunday squad duty (all active staff except Leads and Sunday-off staff)
+    eligible_sunday_staff = [s for s in active_staff_profiles.keys() if s not in ("Hebron", "Beti", "Yordi", "Obsa")]
+
+    def get_squad_pool_for_week(w_idx: int) -> list:
+        if not eligible_sunday_staff:
+            return []
+        count = min(4, len(eligible_sunday_staff))
+        offset = (w_idx * 4) % len(eligible_sunday_staff)
+        selected = []
+        for i in range(len(eligible_sunday_staff)):
+            candidate = eligible_sunday_staff[(offset + i) % len(eligible_sunday_staff)]
+            if candidate not in selected:
+                selected.append(candidate)
+            if len(selected) >= count:
+                break
+        return selected
+
+    # GDS Telegram rotation pool (compensates for Feruza's Telegram role)
+    # Hebron and Biruk are regular Telegram; 3rd Telegram agent alternates bi-weekly among GDS-capable staff
+    rotating_telegram_pool = [s for s in ("Hermela", "Tirsit", "Rediet", "Shalom") if s in active_staff_profiles]
 
     for w in range(duration_weeks):
         week_start_dt = start_dt + timedelta(days=w * 7)
@@ -251,12 +268,10 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
         # Determine effective active duty lead if configured lead is active
         effective_duty_lead = duty_lead if duty_lead in active_staff_profiles else (off_lead if off_lead in active_staff_profiles else None)
 
-        # 4 other staff for Sunday = exactly 5 staff on Sunday (or all active if < 5)
-        raw_squad_pool = sunday_pool_rotation[week_idx % len(sunday_pool_rotation)]
-        available_pool = [s for s in active_staff_profiles.keys() if s not in ("Hebron", "Beti", "Yordi", "Obsa")]
-        squad_pool = [s for s in raw_squad_pool if s in active_staff_profiles]
+        # 4 other staff for Sunday = exactly 5 staff on duty with the duty lead
         target_squad_count = 4 if effective_duty_lead else 5
-        for candidate in available_pool:
+        squad_pool = get_squad_pool_for_week(week_idx)
+        for candidate in eligible_sunday_staff:
             if len(squad_pool) >= target_squad_count:
                 break
             if candidate not in squad_pool:
@@ -268,8 +283,7 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
         prev_sun_date = week_start_dt - timedelta(days=1)
         prev_sun_lead = get_sunday_duty_assignment(prev_sun_date)["working"] # "Hebron" or "Beti"
         prev_week_idx = get_week_index_from_anchor(week_start_dt - timedelta(days=7))
-        raw_prev_pool = sunday_pool_rotation[prev_week_idx % len(sunday_pool_rotation)]
-        prev_squad_pool = [s for s in raw_prev_pool if s in active_staff_profiles]
+        prev_squad_pool = get_squad_pool_for_week(prev_week_idx)
 
         # Off days map for this week: emp_name -> set of day offsets (0=Mon, 6=Sun)
         off_days_map: Dict[str, set] = defaultdict(set)
@@ -394,6 +408,23 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
                         start_t = "08:00"
                         end_t = "17:00"
 
+                    # Telegram task compensation:
+                    # Hebron and Biruk are always on Telegram
+                    # Bi-weekly rotating GDS agent takes the 3rd Telegram slot
+                    primary_t = profile["primary_task"]
+                    secondary_t = profile["secondary_task"]
+                    active_telegram_rotator = rotating_telegram_pool[(week_idx // 2) % len(rotating_telegram_pool)] if rotating_telegram_pool else None
+
+                    if emp_name == "Biruk":
+                        primary_t = "Telegram"
+                        secondary_t = "Call Center"
+                    elif emp_name == active_telegram_rotator:
+                        primary_t = "Telegram"
+                        secondary_t = "ELMS"
+                    elif emp_name == "Hebron":
+                        primary_t = "Telegram"
+                        secondary_t = "Call Center"
+
                     shift = EphemeralShift(
                         employee_id=emp_id,
                         employee_name=emp_name,
@@ -402,8 +433,8 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
                         end_time=end_t,
                         lunch_start=profile["lunch_start"],
                         lunch_end=profile["lunch_end"],
-                        primary_task=profile["primary_task"],
-                        secondary_task=profile["secondary_task"],
+                        primary_task=primary_t,
+                        secondary_task=secondary_t,
                         notes=profile.get("notes", "Regular Shift")
                     )
 
