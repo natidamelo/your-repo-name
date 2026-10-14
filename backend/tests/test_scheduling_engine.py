@@ -132,3 +132,23 @@ def test_schedule_generation_1_2_4_weeks():
         p, v = generate_schedule_data("2026-09-28", weeks)
         assert len(p.days) == weeks * 7
         assert v["critical_errors"] == 0
+
+def test_schedule_generation_with_deactivated_employee():
+    """Verify schedule generation succeeds without KeyError when an employee like Feruza is deactivated."""
+    from app.database import SessionLocal
+    from app.models import Employee
+    db = SessionLocal()
+    emp = db.query(Employee).filter(Employee.first_name == "FERUZA").first()
+    if emp:
+        emp.is_active = False
+        db.commit()
+    try:
+        p, v = generate_schedule_data("2026-10-19", 1, employee_db_map={}, db=db)
+        assert len(p.days) == 7
+    finally:
+        if emp:
+            emp.is_active = True
+            db.commit()
+        db.close()
+
+

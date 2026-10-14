@@ -1,5 +1,6 @@
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, Tuple
+from collections import defaultdict
 from app.engine.rotations import get_saturday_rotation, get_sunday_duty_assignment, get_week_index_from_anchor
 from app.engine.validator import validate_schedule_period
 
@@ -247,67 +248,68 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
         duty_lead = sun_lead["working"] # "Beti" or "Hebron"
         off_lead = sun_lead["off"]       # "Hebron" or "Beti"
 
-        # 4 other staff for Sunday = exactly 5 staff on Sunday
+        # Determine effective active duty lead if configured lead is active
+        effective_duty_lead = duty_lead if duty_lead in active_staff_profiles else (off_lead if off_lead in active_staff_profiles else None)
+
+        # 4 other staff for Sunday = exactly 5 staff on Sunday (or all active if < 5)
         raw_squad_pool = sunday_pool_rotation[week_idx % len(sunday_pool_rotation)]
-        # Filter raw squad pool to active staff, backfilling if an employee is deleted/deactivated
         available_pool = [s for s in active_staff_profiles.keys() if s not in ("Hebron", "Beti", "Yordi", "Obsa")]
         squad_pool = [s for s in raw_squad_pool if s in active_staff_profiles]
+        target_squad_count = 4 if effective_duty_lead else 5
         for candidate in available_pool:
-            if len(squad_pool) >= 4:
+            if len(squad_pool) >= target_squad_count:
                 break
             if candidate not in squad_pool:
                 squad_pool.append(candidate)
 
-        active_sunday_squad = set([duty_lead] + squad_pool)
+        active_sunday_squad = set(([effective_duty_lead] if effective_duty_lead else []) + squad_pool)
 
         # Determine who worked the previous Sunday (yesterday relative to this Monday)
         prev_sun_date = week_start_dt - timedelta(days=1)
         prev_sun_lead = get_sunday_duty_assignment(prev_sun_date)["working"] # "Hebron" or "Beti"
         prev_week_idx = get_week_index_from_anchor(week_start_dt - timedelta(days=7))
-        prev_squad_pool = sunday_pool_rotation[prev_week_idx % len(sunday_pool_rotation)]
+        raw_prev_pool = sunday_pool_rotation[prev_week_idx % len(sunday_pool_rotation)]
+        prev_squad_pool = [s for s in raw_prev_pool if s in active_staff_profiles]
 
         # Off days map for this week: emp_name -> set of day offsets (0=Mon, 6=Sun)
-        off_days_map: Dict[str, set] = {}
+        off_days_map: Dict[str, set] = defaultdict(set)
         for emp in active_staff_profiles.keys():
             off_days_map[emp] = set()
 
         # Rule: Worker who worked Sunday gets Monday (0) OFF!
         # The lead who worked previous Sunday gets Monday OFF this week.
         # The lead who works THIS Sunday (6) is NOT off on Sunday; the other lead is OFF on Sunday.
-        if prev_sun_lead == "Hebron":
-            off_days_map["Hebron"].add(0) # Monday recovery OFF
-        else:
-            off_days_map["Beti"].add(0)   # Monday recovery OFF
+        if prev_sun_lead in active_staff_profiles:
+            off_days_map[prev_sun_lead].add(0) # Monday recovery OFF
 
-        # Sunday of this week
-        if duty_lead == "Hebron":
-            off_days_map["Beti"].add(6)   # Beti OFF on Sunday
-            if 0 not in off_days_map["Hebron"]:
-                off_days_map["Hebron"].add(3) # Hebron gets Thursday OFF
-        else:
-            off_days_map["Hebron"].add(6) # Hebron OFF on Sunday
-            if 0 not in off_days_map["Beti"]:
-                off_days_map["Beti"].add(3)   # Beti gets Thursday OFF
+        # Sunday of this week for leads:
+        if off_lead in active_staff_profiles:
+            off_days_map[off_lead].add(6) # Off lead gets Sunday OFF
+        if effective_duty_lead and effective_duty_lead in active_staff_profiles:
+            # Duty lead working Sunday: gets midweek OFF (Thursday 3) if not already getting Monday recovery OFF
+            if 0 not in off_days_map[effective_duty_lead]:
+                off_days_map[effective_duty_lead].add(3)
 
         # Feruza: 1.5 days off per week, tied to Beti
-        if "Feruza" in prev_squad_pool:
-            off_days_map["Feruza"].add(0) # Monday recovery OFF
-        elif "Feruza" not in active_sunday_squad:
-            off_days_map["Feruza"].add(6) # Sunday OFF
-        else:
-            off_days_map["Feruza"].add(3) # Midweek OFF if working Sunday
+        if "Feruza" in active_staff_profiles:
+            if "Feruza" in prev_squad_pool:
+                off_days_map["Feruza"].add(0) # Monday recovery OFF
+            elif "Feruza" not in active_sunday_squad:
+                off_days_map["Feruza"].add(6) # Sunday OFF
+            else:
+                off_days_map["Feruza"].add(3) # Midweek OFF if working Sunday
 
         # Yordi and Obsa: ALWAYS work Mon–Sat, DAY OFF on Sunday (day 6)
-        off_days_map["Yordi"] = {6}
-        off_days_map["Obsa"] = {6}
+        if "Yordi" in active_staff_profiles:
+            off_days_map["Yordi"] = {6}
+        if "Obsa" in active_staff_profiles:
+            off_days_map["Obsa"] = {6}
 
         # Handle Sunday squad members: they work Sunday (day 6), and need 2 days off (Monday + 1 weekday)
         # Rule: Out of 5 Sunday staff, 2 or 3 must be OFF on Monday!
-        # Duty lead (Beti or Hebron) is already OFF Monday (0).
-        # We give 1 or 2 other Sunday squad members Monday OFF to reach target of 2-3 Monday offs.
-        monday_off_given = 1 # lead already has Monday off
+        monday_off_given = 1 if (effective_duty_lead and 0 in off_days_map[effective_duty_lead]) else 0
         for s_emp in squad_pool:
-            if s_emp in ("Yordi", "Obsa"): continue
+            if s_emp in ("Yordi", "Obsa", "Feruza"): continue
             if monday_off_given < 3:
                 off_days_map[s_emp] = {0, 3} # Monday + Thursday OFF (works Sunday)
                 monday_off_given += 1
@@ -335,7 +337,7 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
             day_shifts = []
             for emp_name, profile in active_staff_profiles.items():
                 emp_id = get_emp_id(emp_name)
-                is_off = (weekday in off_days_map[emp_name])
+                is_off = (weekday in off_days_map.get(emp_name, set()))
 
                 if is_off:
                     shift = EphemeralShift(

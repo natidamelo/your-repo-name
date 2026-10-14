@@ -89,7 +89,7 @@ def generate_schedule(
         for s in d.shifts:
             emp_id = s.employee_id
             if not emp_id or emp_id == 0:
-                emp = next((e for e in employees if e.first_name == s.employee_name), None)
+                emp = next((e for e in employees if e.first_name.strip().lower() == s.employee_name.strip().lower()), None)
                 emp_id = emp.id if emp else None
 
             if emp_id:
