@@ -277,10 +277,16 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
             off_days_map[emp] = set()
 
         # Rule: Worker who worked Sunday gets Monday (0) OFF!
-        # The lead who worked previous Sunday gets Monday OFF this week.
-        # The lead who works THIS Sunday (6) is NOT off on Sunday; the other lead is OFF on Sunday.
+        # The lead and squad members who worked previous Sunday get Monday recovery OFF this week.
         if prev_sun_lead in active_staff_profiles:
-            off_days_map[prev_sun_lead].add(0) # Monday recovery OFF
+            off_days_map[prev_sun_lead].add(0) # Lead Monday recovery OFF
+
+        monday_off_given = 1 if (prev_sun_lead in active_staff_profiles and 0 in off_days_map[prev_sun_lead]) else 0
+        for p_emp in prev_squad_pool:
+            if p_emp in ("Yordi", "Obsa", "Feruza"): continue
+            if monday_off_given < 3:
+                off_days_map[p_emp].add(0) # Sunday squad member Monday recovery OFF
+                monday_off_given += 1
 
         # Sunday of this week for leads:
         if off_lead in active_staff_profiles:
@@ -305,16 +311,13 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
         if "Obsa" in active_staff_profiles:
             off_days_map["Obsa"] = {6}
 
-        # Handle Sunday squad members: they work Sunday (day 6), and need 2 days off (Monday + 1 weekday)
-        # Rule: Out of 5 Sunday staff, 2 or 3 must be OFF on Monday!
-        monday_off_given = 1 if (effective_duty_lead and 0 in off_days_map[effective_duty_lead]) else 0
+        # Handle Sunday squad members: they work Sunday (day 6), and need exactly 2 days off per week
         for s_emp in squad_pool:
             if s_emp in ("Yordi", "Obsa", "Feruza"): continue
-            if monday_off_given < 3:
-                off_days_map[s_emp] = {0, 3} # Monday + Thursday OFF (works Sunday)
-                monday_off_given += 1
+            if 0 in off_days_map[s_emp]:
+                off_days_map[s_emp].add(3) # Monday + Thursday OFF (works Sunday)
             else:
-                off_days_map[s_emp] = {2, 4} # Wednesday + Friday OFF (works Sunday)
+                off_days_map[s_emp].update({2, 4}) # Wednesday + Friday OFF (works Sunday)
 
         # Handle remaining staff who do NOT work Sunday:
         # Sunday (6) is mandatory Day Off #1, plus 1 weekday off (Day Off #2) = exactly 2 days off

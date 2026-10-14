@@ -73,17 +73,22 @@ def seed_database():
             skill_records[code] = sk
             skill_records[name] = sk
 
-        # 3. Seed 12 Staff Members
-        print("Ensuring current 12 staff members...")
-        # Auto-cleanup any ghost duplicate employees if inserted previously
-        ghost_emps = db.query(Employee).filter(Employee.id > 12).all()
-        if ghost_emps:
-            ghost_ids = [e.id for e in ghost_emps]
-            db.query(EmployeeSkill).filter(EmployeeSkill.employee_id.in_(ghost_ids)).delete(synchronize_session=False)
-            db.query(WorkingHours).filter(WorkingHours.employee_id.in_(ghost_ids)).delete(synchronize_session=False)
-            db.query(LunchBreak).filter(LunchBreak.employee_id.in_(ghost_ids)).delete(synchronize_session=False)
-            db.query(SpecialRule).filter(SpecialRule.employee_id.in_(ghost_ids)).delete(synchronize_session=False)
-            db.query(Employee).filter(Employee.id.in_(ghost_ids)).delete(synchronize_session=False)
+        # 3. Seed 12 Staff Members ONLY on a brand-new, empty database
+        print("Checking staff members...")
+        
+        # Clean up any resurrected Feruza (id > 12) created by previous auto-seeder run
+        recreated_feruza = db.query(Employee).filter(
+            (Employee.first_name.ilike("feruza")),
+            Employee.id > 12
+        ).all()
+        if recreated_feruza:
+            for rf in recreated_feruza:
+                print(f"Cleaning up auto-resurrected employee Feruza (id={rf.id})...")
+                db.query(EmployeeSkill).filter(EmployeeSkill.employee_id == rf.id).delete(synchronize_session=False)
+                db.query(WorkingHours).filter(WorkingHours.employee_id == rf.id).delete(synchronize_session=False)
+                db.query(LunchBreak).filter(LunchBreak.employee_id == rf.id).delete(synchronize_session=False)
+                db.query(SpecialRule).filter(SpecialRule.employee_id == rf.id).delete(synchronize_session=False)
+                db.delete(rf)
             db.commit()
 
         STAFF_CONFIGS = [
@@ -185,13 +190,10 @@ def seed_database():
             }
         ]
 
-        emp_db_map = {}
-        for cfg in STAFF_CONFIGS:
-            emp = db.query(Employee).filter(
-                (Employee.first_name == cfg["first_name"]) |
-                (Employee.first_name.ilike(cfg["first_name"]))
-            ).first()
-            if not emp and db.query(Employee).count() < 12:
+        existing_emp_count = db.query(Employee).count()
+        if existing_emp_count == 0:
+            print("Empty employee table detected. Seeding initial 12 staff members...")
+            for cfg in STAFF_CONFIGS:
                 emp = Employee(
                     first_name=cfg["first_name"],
                     position=cfg["position"],
@@ -236,10 +238,13 @@ def seed_database():
                         employee_id=emp.id,
                         rule_type=r
                     ))
+            db.commit()
+            print("Successfully seeded initial 12 employees!")
+        else:
+            print(f"Database already initialized with {existing_emp_count} employees. Preserving user staff management.")
 
-            emp_db_map[emp.first_name] = emp.id
-
-        db.commit()
+        # Build emp_db_map from currently active DB employees
+        emp_db_map = {e.first_name: e.id for e in db.query(Employee).filter(Employee.is_active == True).all()}
 
         # 4. Seed Initial 2-Week Schedule: September 28, 2026 - October 11, 2026
         print("Seeding initial 2-week schedule (Sep 28, 2026 – Oct 11, 2026)...")
