@@ -41,16 +41,6 @@ def get_saturday_rotation(target_date: date) -> dict:
                 "primary_task": "Call Center",
                 "notes": "M-LHD: C"
             },
-            "Feruza": {
-                "shift_type": "AM_HALF",
-                "start_time": "09:00",
-                "end_time": "13:00",
-                "lunch_start": None,
-                "lunch_end": None,
-                "primary_task": "Telegram",
-                "secondary_task": "ELMS",
-                "notes": "M-LHD: T/ELMS/Q"
-            },
             "Hebron": {
                 "shift_type": "PM_HALF",
                 "start_time": "14:00",
@@ -81,15 +71,6 @@ def get_saturday_rotation(target_date: date) -> dict:
                 "lunch_end": None,
                 "primary_task": "Call Center",
                 "notes": "A-HD"
-            },
-            "Feruza": {
-                "shift_type": "PM_HALF",
-                "start_time": "13:00",
-                "end_time": "17:00",
-                "lunch_start": None,
-                "lunch_end": None,
-                "primary_task": "Telegram",
-                "notes": "A-HD: T"
             }
         }
 

@@ -36,6 +36,9 @@ def sync_constraints_staff_list(db: Session, employee_name: str, action: str, ol
                 if len(new_names) != len(names):
                     names = new_names
                     modified = True
+                # Deactivate constraints dedicated to this employee
+                if (c.rule_key and employee_name.lower() in c.rule_key.lower()) or (c.title and employee_name.lower() in c.title.lower()):
+                    c.is_active = False
             
             if modified:
                 c.staff_names = ", ".join(names)
@@ -248,6 +251,12 @@ def delete_employee(
         db.delete(emp)
         sync_constraints_staff_list(db, first_name, action="delete")
 
+        # Clean up any future or orphan shift assignments
+        db.query(ShiftAssignment).filter(
+            (ShiftAssignment.employee_id == id) | 
+            (ShiftAssignment.employee_name.ilike(first_name))
+        ).delete(synchronize_session=False)
+
         audit = AuditLog(
             user_id=current_user.id,
             user_name=current_user.username,
@@ -263,6 +272,17 @@ def delete_employee(
         return {"message": f"Employee {emp_name} permanently deleted", "id": id, "status": "deleted"}
     else:
         emp.is_active = False
+        sync_constraints_staff_list(db, first_name, action="delete")
+
+        # Clear future shift assignments for deactivated staff
+        today_iso = datetime.utcnow().strftime("%Y-%m-%d")
+        db.query(ShiftAssignment).filter(
+            (ShiftAssignment.employee_id == id) | 
+            (ShiftAssignment.employee_name.ilike(first_name))
+        ).filter(
+            ShiftAssignment.schedule_day.has(ScheduleDay.date >= today_iso)
+        ).delete(synchronize_session=False)
+
         audit = AuditLog(
             user_id=current_user.id,
             user_name=current_user.username,

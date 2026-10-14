@@ -73,22 +73,38 @@ def seed_database():
             skill_records[code] = sk
             skill_records[name] = sk
 
-        # 3. Seed 12 Staff Members ONLY on a brand-new, empty database
+        # 3. Seed Staff Members ONLY on a brand-new, empty database
         print("Checking staff members...")
         
-        # Clean up any resurrected Feruza (id > 12) created by previous auto-seeder run
-        recreated_feruza = db.query(Employee).filter(
-            (Employee.first_name.ilike("feruza")),
-            Employee.id > 12
-        ).all()
-        if recreated_feruza:
-            for rf in recreated_feruza:
-                print(f"Cleaning up auto-resurrected employee Feruza (id={rf.id})...")
+        # Clean up any lingering Feruza profile or shifts
+        all_feruza = db.query(Employee).filter(Employee.first_name.ilike("feruza")).all()
+        if all_feruza:
+            for rf in all_feruza:
+                print(f"Purging deleted employee Feruza (id={rf.id})...")
                 db.query(EmployeeSkill).filter(EmployeeSkill.employee_id == rf.id).delete(synchronize_session=False)
                 db.query(WorkingHours).filter(WorkingHours.employee_id == rf.id).delete(synchronize_session=False)
                 db.query(LunchBreak).filter(LunchBreak.employee_id == rf.id).delete(synchronize_session=False)
                 db.query(SpecialRule).filter(SpecialRule.employee_id == rf.id).delete(synchronize_session=False)
+                # Clear shift assignments
+                db.query(ShiftAssignment).filter(ShiftAssignment.employee_id == rf.id).delete(synchronize_session=False)
                 db.delete(rf)
+            db.commit()
+
+        # Clean up any orphaned shift assignments for Feruza by employee_name
+        orphan_feruza_shifts = db.query(ShiftAssignment).filter(ShiftAssignment.employee_name.ilike("feruza")).all()
+        if orphan_feruza_shifts:
+            for ofs in orphan_feruza_shifts:
+                db.delete(ofs)
+            db.commit()
+
+        # Also purge any legacy feruza_days_off constraint
+        legacy_c = db.query(SystemConstraint).filter(
+            (SystemConstraint.rule_key == "feruza_days_off") | 
+            (SystemConstraint.title.ilike("feruza"))
+        ).all()
+        if legacy_c:
+            for lc in legacy_c:
+                db.delete(lc)
             db.commit()
 
         STAFF_CONFIGS = [
@@ -123,14 +139,6 @@ def seed_database():
                 "lunch_start": "13:00", "lunch_end": "14:00",
                 "skills": ["Call Center", "Amadeus"],
                 "special_rules": ["TWO_DAYS_OFF"]
-            },
-            {
-                "first_name": "FERUZA",
-                "position": "Support Agent / Lunch CC Cover",
-                "start_time": "09:00", "end_time": "18:00",
-                "lunch_start": "13:00", "lunch_end": "14:00",
-                "skills": ["GDS", "Telegram", "Junior Amadeus", "ELMS", "Email", "QUE", "Call Center"],
-                "special_rules": ["TWO_DAYS_OFF", "CALL_CENTER_LUNCH_COVER"]
             },
             {
                 "first_name": "Tirsit",
@@ -192,7 +200,7 @@ def seed_database():
 
         existing_emp_count = db.query(Employee).count()
         if existing_emp_count == 0:
-            print("Empty employee table detected. Seeding initial 12 staff members...")
+            print("Empty employee table detected. Seeding initial 11 staff members...")
             for cfg in STAFF_CONFIGS:
                 emp = Employee(
                     first_name=cfg["first_name"],
@@ -239,7 +247,7 @@ def seed_database():
                         rule_type=r
                     ))
             db.commit()
-            print("Successfully seeded initial 12 employees!")
+            print("Successfully seeded initial 11 employees!")
         else:
             print(f"Database already initialized with {existing_emp_count} employees. Preserving user staff management.")
 

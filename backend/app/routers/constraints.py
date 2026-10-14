@@ -34,17 +34,8 @@ DEFAULT_CONSTRAINTS = [
         "rule_key": "sunday_squad_5",
         "title": "Sunday Squad",
         "category": "SUNDAY_SQUAD",
-        "staff_names": "Yabsera N, Biruk, Tirsit, Feruza, Hermela, Shalom, Rediet, Luam",
+        "staff_names": "Yabsera N, Biruk, Tirsit, Hermela, Shalom, Rediet, Luam",
         "description": "Exactly 5 staff on duty; 2–3 get Monday recovery OFF.",
-        "is_active": True,
-        "is_system": True
-    },
-    {
-        "rule_key": "feruza_days_off",
-        "title": "Feruza",
-        "category": "DAYS_OFF",
-        "staff_names": "Feruza, Beti",
-        "description": "1.5 days off, tied to Beti Saturday/Sunday schedule.",
         "is_active": True,
         "is_system": True
     },
@@ -79,7 +70,7 @@ DEFAULT_CONSTRAINTS = [
         "rule_key": "gds_tasks_policy",
         "title": "GDS Tasks",
         "category": "TASK_ROTATION",
-        "staff_names": "Hebron, Beti, Feruza, Biruk, Tirsit, Rediet, Hermela, Shalom, Yabsera N, Yeab",
+        "staff_names": "Hebron, Beti, Biruk, Tirsit, Rediet, Hermela, Shalom, Yabsera N, Yeab",
         "description": "Telegram/ELMS/Q/E reserved for GDS staff; Yabsera N excluded from Telegram.",
         "is_active": True,
         "is_system": True

@@ -234,7 +234,7 @@ def get_dashboard_summary(
             {"name": "Yabsera N", "hours": "09:00–18:00", "tasks": ["Call Center", "Email", "QUE", "2839 phone"]},
             {"name": "Biruk", "hours": "08:00–17:00", "tasks": ["Call Center", "Telegram", "ELMS", "Follow up"]},
             {"name": "Tirsit", "hours": "08:00–17:00", "tasks": ["Call Center", "Follow up", "Email"]},
-            {"name": "FERUZA", "hours": "09:00–18:00", "tasks": ["Call Center", "Telegram", "ELMS", "QUE"]},
+            {"name": "Hermela", "hours": "09:00–18:00", "tasks": ["Call Center", "Telegram", "ELMS", "QUE"]},
             {"name": "BETHEL", "hours": "09:00–18:00", "tasks": ["Call Center", "2839 phone"]}
         ]
 

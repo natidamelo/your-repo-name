@@ -25,31 +25,22 @@ STAFF_PROFILES = {
         "notes": "E-M: C/2839"
     },
     "Biruk": {
-        "start_time": "08:00",
-        "end_time": "17:00",
-        "lunch_start": "12:00",
-        "lunch_end": "13:00",
-        "primary_task": "Call Center",
-        "secondary_task": "Telegram",
-        "notes": "E-M: C/T-BKP"
-    },
-    "Luam": {
-        "start_time": "09:00",
-        "end_time": "18:00",
-        "lunch_start": "12:00",
-        "lunch_end": "13:00",
-        "primary_task": "Call Center",
-        "secondary_task": "2839 phone",
-        "notes": "M-M: C/2839"
-    },
-    "Feruza": {
         "start_time": "09:00",
         "end_time": "18:00",
         "lunch_start": "13:00",
         "lunch_end": "14:00",
-        "primary_task": "Telegram",
-        "secondary_task": "ELMS",
-        "notes": "M-M: T/ELMS"
+        "primary_task": "Call Center",
+        "secondary_task": "Telegram",
+        "notes": "M-M: C/T-BKP"
+    },
+    "Luam": {
+        "start_time": "09:00",
+        "end_time": "18:00",
+        "lunch_start": "13:00",
+        "lunch_end": "14:00",
+        "primary_task": "Call Center",
+        "secondary_task": "2839 phone",
+        "notes": "M-M: C/2839"
     },
     "Tirsit": {
         "start_time": "08:00",
@@ -160,7 +151,7 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
     3. Bi-weekly Sunday duty lead rotation between Beti and Hebron.
     4. Sunday duty worker gets Monday OFF.
     5. Exactly 5 staff on Sunday; 2 to 3 Sunday workers get Monday OFF.
-    6. Feruza tied to Beti (1.5 days off).
+    6. Lead & GDS Telegram/Coverage compensation for 11 active staff.
     7. Hebron (Mon-Fri) ALWAYS 08:00–17:00 (E-M).
     8. Shalom, Rediet, Tirsit ALWAYS 08:00–17:00 (E-M) when working.
     9. Yordi and Obsa work Mon–Sat and have Sunday OFF.
@@ -380,16 +371,21 @@ def generate_schedule_data(start_date_str: str, duration_weeks: int, employee_db
                     # Sunday duty: strictly 5 staff
                     is_sunday_squad = emp_name in active_sunday_squad
                     if is_sunday_squad:
+                        squad_list = sorted(list(active_sunday_squad))
+                        squad_idx = squad_list.index(emp_name) if emp_name in squad_list else 0
+                        # Stagger Sunday lunches to guarantee continuous Call Center coverage across all slots
+                        sun_l_start = "12:00" if squad_idx < 2 else "13:00"
+                        sun_l_end = "13:00" if squad_idx < 2 else "14:00"
                         shift = EphemeralShift(
                             employee_id=emp_id,
                             employee_name=emp_name,
                             shift_type="SUNDAY_DUTY",
                             start_time=profile["start_time"],
                             end_time=profile["end_time"],
-                            lunch_start=profile["lunch_start"],
-                            lunch_end=profile["lunch_end"],
-                            primary_task=profile["primary_task"],
-                            secondary_task=profile["secondary_task"],
+                            lunch_start=sun_l_start,
+                            lunch_end=sun_l_end,
+                            primary_task="Call Center",
+                            secondary_task=profile.get("secondary_task") or "Telegram",
                             notes="SUNDAY_DUTY: 5 Staff Squad"
                         )
                     else:
